@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useSignUp } from "@clerk/nextjs";
+import { useSignUp, useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 
 export default function CustomSignUpPage() {
   const { isLoaded, signUp, setActive } = useSignUp();
+  const { user, isLoaded: userLoaded } = useUser();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [firstName, setFirstName] = useState("");
@@ -21,6 +22,13 @@ export default function CustomSignUpPage() {
   const [resendCooldown, setResendCooldown] = useState(0);
   const router = useRouter();
 
+  // Redirect logged-in users
+  useEffect(() => {
+    if (userLoaded && user) {
+      router.push("/order");
+    }
+  }, [user, userLoaded, router]);
+
   // Cooldown timer for resend button
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -31,6 +39,24 @@ export default function CustomSignUpPage() {
     }
     return () => clearInterval(interval);
   }, [resendCooldown]);
+
+  // Show loading while checking authentication
+  if (!userLoaded) {
+    return (
+      <div className="flex items-center justify-center min-h-screen p-4">
+        <Card className="w-full max-w-md">
+          <CardContent className="p-8 text-center">
+            <p>Loading...</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Don't render if user is logged in (will redirect)
+  if (user) {
+    return null;
+  }
 
   const handleResendCode = async () => {
     if (!isLoaded || resendCooldown > 0) return;
@@ -98,7 +124,7 @@ export default function CustomSignUpPage() {
         }));
         
         await setActive({ session: completeSignUp.createdSessionId });
-        router.push("/order");
+        router.push("/employee-dashboard");
       }
     } catch (err: any) {
       setError(err.errors?.[0]?.message || "An error occurred");
