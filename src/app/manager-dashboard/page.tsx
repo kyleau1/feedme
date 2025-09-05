@@ -45,21 +45,6 @@ export default function ManagerDashboard() {
 
   const today = new Date().toISOString().slice(0, 10);
 
-  // Show loading while checking authentication
-  if (!isLoaded) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <p>Loading manager dashboard...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return null;
-  }
-
   // Fetch all restaurants for the select dropdown
   useEffect(() => {
     async function fetchRestaurants() {
@@ -139,6 +124,21 @@ export default function ManagerDashboard() {
 
     fetchOrders();
   }, [todayRestaurant]);
+
+  // Show loading while checking authentication
+  if (!isLoaded) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <p>Loading manager dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return null;
+  }
 
   const changeRestaurant = async (restaurantId: string) => {
     const orgId = "018615c8-327d-4648-8072-52f1f2da6f34";
