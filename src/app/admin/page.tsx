@@ -17,6 +17,7 @@ interface Restaurant {
 interface Order {
   id: string;
   user_id: string;
+  user_name: string;
   items: string[];
   user_email?: string;
   created_at: string;
@@ -95,7 +96,7 @@ export default function AdminPage() {
 
       const { data: orderData, error } = await supabase
         .from("orders")
-        .select("id, user_id, items, created_at")
+        .select("id, user_id, user_name, items, created_at")
         .eq("restaurant_id", todayRestaurant.id)
         .gte("created_at", startOfDay.toISOString())
         .lte("created_at", endOfDay.toISOString());
@@ -245,7 +246,7 @@ export default function AdminPage() {
                 <Card key={order.id} className="p-4">
                   <div className="flex justify-between items-start">
                     <div className="space-y-2">
-                      <div className="font-medium">User: {order.user_id}</div>
+                      <div className="font-medium">{order.user_name}</div>
                       <div className="text-sm text-muted-foreground">
                         Items: {order.items.join(", ")}
                       </div>
@@ -347,3 +348,4 @@ export default function AdminPage() {
     </div>
   );
 }
+

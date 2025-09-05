@@ -49,8 +49,14 @@ export default function CheckoutPage() {
     setIsSubmitting(true);
     setMessage("");
 
+    // Get user's name from Clerk
+    const userName = user.firstName && user.lastName 
+      ? `${user.firstName} ${user.lastName}`.trim()
+      : user.firstName || user.username || 'Unknown User';
+
     const { error } = await supabase.from("orders").insert({
       user_id: user.id,
+      user_name: userName,
       restaurant_id: restaurant.id,
       items: selectedItems,
     });
