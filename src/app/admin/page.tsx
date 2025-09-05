@@ -2,6 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Trash2 } from "lucide-react";
 
 interface Restaurant {
   id: string;
@@ -14,6 +19,7 @@ interface Order {
   user_id: string;
   items: string[];
   user_email?: string;
+  created_at: string;
 }
 
 export default function AdminPage() {
@@ -119,47 +125,104 @@ export default function AdminPage() {
     }
   };
 
+  const deleteOrder = async (orderId: string) => {
+    const { error } = await supabase
+      .from("orders")
+      .delete()
+      .eq("id", orderId);
+
+    if (error) {
+      console.error("Error deleting order:", error);
+    } else {
+      // Update local state to remove the deleted order
+      setOrders(prevOrders => prevOrders.filter(order => order.id !== orderId));
+    }
+  };
+
   return (
-    <div className="p-8 max-w-md mx-auto">
-      <h1 className="text-2xl font-bold mb-4">Admin Dashboard</h1>
+    <div className="p-8 max-w-4xl mx-auto space-y-6">
+      <h1 className="text-3xl font-bold">Admin Dashboard</h1>
 
-      <h2 className="text-lg font-semibold mb-2">Today's Restaurant</h2>
-      {todayRestaurant ? (
-        <p>{todayRestaurant.name}</p>
-      ) : (
-        <p>No restaurant selected for today.</p>
-      )}
+      <Card>
+        <CardHeader>
+          <CardTitle>Today's Restaurant</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {todayRestaurant ? (
+            <p className="text-lg">{todayRestaurant.name}</p>
+          ) : (
+            <p className="text-muted-foreground">No restaurant selected for today.</p>
+          )}
+        </CardContent>
+      </Card>
 
-      <h2 className="text-lg font-semibold mt-6 mb-2">Change Today's Restaurant</h2>
-      <select
-        className="border p-2 rounded w-full mb-4"
-        defaultValue=""
-        onChange={(e) => changeRestaurant(e.target.value)}
-      >
-        <option value="">-- Select --</option>
-        {restaurants.map(r => (
-          <option key={r.id} value={r.id}>{r.name}</option>
-        ))}
-      </select>
+      <Card>
+        <CardHeader>
+          <CardTitle>Change Today's Restaurant</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Select onValueChange={changeRestaurant}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Select a restaurant" />
+            </SelectTrigger>
+            <SelectContent>
+              {restaurants.map(r => (
+                <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </CardContent>
+      </Card>
 
-      <h2 className="text-lg font-semibold mt-6 mb-2">Today's Orders ({orders.length})</h2>
-      {orders.length === 0 ? (
-        <p>No orders yet.</p>
-      ) : (
-        <div className="space-y-3">
-          {orders.map(order => (
-            <div key={order.id} className="border p-3 rounded bg-gray-50">
-              <div className="font-medium">User: {order.user_id}</div>
-              <div className="text-sm text-gray-600">
-                Items: {order.items.join(", ")}
-              </div>
-              <div className="text-xs text-gray-500">
-                Ordered at: {new Date(order.created_at).toLocaleTimeString()}
-              </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Today's Orders ({orders.length})</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {orders.length === 0 ? (
+            <p className="text-muted-foreground">No orders yet.</p>
+          ) : (
+            <div className="space-y-4">
+              {orders.map(order => (
+                <Card key={order.id} className="p-4">
+                  <div className="flex justify-between items-start">
+                    <div className="space-y-2">
+                      <div className="font-medium">User: {order.user_id}</div>
+                      <div className="text-sm text-muted-foreground">
+                        Items: {order.items.join(", ")}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        Ordered at: {new Date(order.created_at).toLocaleTimeString()}
+                      </div>
+                    </div>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="destructive" size="sm">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete Order</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Are you sure you want to delete this order? This action cannot be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => deleteOrder(order.id)}>
+                            Delete
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
+                </Card>
+              ))}
             </div>
-          ))}
-        </div>
-      )}
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

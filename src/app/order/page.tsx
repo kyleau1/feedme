@@ -3,6 +3,12 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useUser } from "@clerk/nextjs";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ShoppingCart, CheckCircle, CreditCard } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 interface Restaurant {
   id: string;
@@ -12,6 +18,7 @@ interface Restaurant {
 
 export default function OrderPage() {
   const { user } = useUser();
+  const router = useRouter();
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null);
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
@@ -70,6 +77,21 @@ export default function OrderPage() {
     );
   };
 
+  const goToCheckout = () => {
+    if (!selectedRestaurant || selectedItems.length === 0) {
+      setMessage("Please select a restaurant and items first.");
+      return;
+    }
+    
+    // Store data in sessionStorage for checkout page
+    sessionStorage.setItem('checkoutData', JSON.stringify({
+      restaurant: selectedRestaurant,
+      selectedItems: selectedItems
+    }));
+    
+    router.push('/checkout');
+  };
+
   const submitOrder = async () => {
     if (!user) return;
 
@@ -92,58 +114,100 @@ export default function OrderPage() {
   if (!user) return <p>Loading user info...</p>;
 
   return (
-    <div className="p-8">
-      <h1 className="text-2xl font-bold mb-4">Order Food</h1>
+    <div className="p-8 max-w-4xl mx-auto space-y-6">
+      <h1 className="text-3xl font-bold flex items-center gap-2">
+        <ShoppingCart className="h-8 w-8" />
+        Order Food
+      </h1>
 
       {/* Only show dropdown if admin hasn't picked a restaurant */}
       {!selectedRestaurant && restaurants.length > 0 && (
-        <div className="mb-4">
-          <h2 className="font-semibold mb-2">Choose a restaurant:</h2>
-          <select
-            className="border p-2 rounded"
-            onChange={(e) => {
-              const r = restaurants.find(r => r.id === e.target.value);
-              setSelectedRestaurant(r || null);
-              setSelectedItems([]);
-            }}
-            defaultValue=""
-          >
-            <option value="">-- Select --</option>
-            {restaurants.map(r => (
-              <option key={r.id} value={r.id}>{r.name}</option>
-            ))}
-          </select>
-        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>Choose a restaurant</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Select
+              onValueChange={(value) => {
+                const r = restaurants.find(r => r.id === value);
+                setSelectedRestaurant(r || null);
+                setSelectedItems([]);
+              }}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select a restaurant" />
+              </SelectTrigger>
+              <SelectContent>
+                {restaurants.map(r => (
+                  <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </CardContent>
+        </Card>
       )}
 
       {selectedRestaurant && (
-        <>
-          <h2 className="text-xl font-semibold mb-2">{selectedRestaurant.name}</h2>
-          <div className="flex flex-col gap-2 mb-4">
-            {selectedRestaurant.menu.map(item => (
-              <label key={item} className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={selectedItems.includes(item)}
-                  onChange={() => toggleItem(item)}
-                  className="mr-2"
-                />
-                <span>{item}</span>
-              </label>
-            ))}
-          </div>
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <CheckCircle className="h-5 w-5 text-green-500" />
+              {selectedRestaurant.name}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-3">
+              <h3 className="font-semibold">Select items:</h3>
+              {selectedRestaurant.menu.map(item => (
+                <div key={item} className="flex items-center space-x-2">
+                  <Checkbox
+                    id={item}
+                    checked={selectedItems.includes(item)}
+                    onCheckedChange={() => toggleItem(item)}
+                  />
+                  <label
+                    htmlFor={item}
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                  >
+                    {item}
+                  </label>
+                </div>
+              ))}
+            </div>
 
-          <div className="mb-4">
-            <button
-              onClick={submitOrder}
-              className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
-            >
-              Submit Order
-            </button>
-          </div>
+            {selectedItems.length > 0 && (
+              <div className="border-t pt-4">
+                <div className="mb-4">
+                  <h4 className="font-semibold mb-2">Selected items ({selectedItems.length}):</h4>
+                  <ul className="list-disc list-inside text-sm text-muted-foreground">
+                    {selectedItems.map(item => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                </div>
+                <div className="space-y-2">
+                  <Button onClick={goToCheckout} className="w-full">
+                    <CreditCard className="h-4 w-4 mr-2" />
+                    Proceed to Checkout
+                  </Button>
+                  <Button onClick={submitOrder} variant="outline" className="w-full">
+                    Submit Order Directly
+                  </Button>
+                </div>
+              </div>
+            )}
 
-          {message && <div className="text-red-600">{message}</div>}
-        </>
+            {message && (
+              <div className={`p-3 rounded-md ${
+                message.includes("Error") 
+                  ? "bg-red-50 text-red-700 border border-red-200" 
+                  : "bg-green-50 text-green-700 border border-green-200"
+              }`}>
+                {message}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       )}
     </div>
   );

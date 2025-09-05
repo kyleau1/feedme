@@ -3,43 +3,47 @@
 import Image from "next/image";
 import { useClerk } from "@clerk/nextjs";
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function Home() {
   const { signOut } = useClerk();
 
   return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-
-        <div className="flex gap-4">
-          <Link
-            href="/sign-up"
-            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-          >
-            Sign Up
-          </Link>
-          <Link
-            href="/sign-in"
-            className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
-          >
-            Sign In
-          </Link>
-          <button
-            onClick={() => signOut()}
-            className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
-          >
-            Sign Out
-          </button>
-        </div>
-      </main>
+    <div className="min-h-screen flex items-center justify-center p-8">
+      <Card className="w-full max-w-md">
+        <CardHeader className="text-center">
+          <CardTitle className="text-2xl font-bold">FeedMe</CardTitle>
+          <p className="text-muted-foreground">Streamline your team's food ordering</p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex flex-col gap-3">
+            <Button asChild>
+              <Link href="/sign-up">Sign Up</Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link href="/sign-in">Sign In</Link>
+            </Button>
+            <Button 
+              onClick={() => signOut()} 
+              variant="destructive"
+            >
+              Sign Out
+            </Button>
+          </div>
+          
+          <div className="pt-4 border-t">
+            <div className="flex gap-2">
+              <Button asChild variant="secondary" size="sm">
+                <Link href="/admin">Admin Dashboard</Link>
+              </Button>
+              <Button asChild variant="secondary" size="sm">
+                <Link href="/order">Place Order</Link>
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
