@@ -11,14 +11,13 @@ export default function SignUpPage() {
             elements: {
               formButtonPrimary: "bg-primary text-primary-foreground hover:bg-primary/90",
               card: "shadow-lg",
+              formFieldInput: "mb-2",
+              formFieldLabel: "mb-2",
             },
           }}
           signInUrl="/sign-in"
           afterSignUpUrl="/order"
           forceRedirectUrl="/order"
-          unsafeMetadata={{
-            requireName: true
-          }}
         />
       </div>
     </div>

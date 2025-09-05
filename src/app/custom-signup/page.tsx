@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSignUp } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -18,7 +18,35 @@ export default function CustomSignUpPage() {
   const [code, setCode] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [resendCooldown, setResendCooldown] = useState(0);
   const router = useRouter();
+
+  // Cooldown timer for resend button
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (resendCooldown > 0) {
+      interval = setInterval(() => {
+        setResendCooldown(prev => prev - 1);
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [resendCooldown]);
+
+  const handleResendCode = async () => {
+    if (!isLoaded || resendCooldown > 0) return;
+    
+    setIsLoading(true);
+    setError("");
+    
+    try {
+      await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
+      setResendCooldown(60); // 60 second cooldown
+    } catch (err: any) {
+      setError(err.errors?.[0]?.message || "Failed to resend verification code");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -85,10 +113,13 @@ export default function CustomSignUpPage() {
         <Card className="w-full max-w-md">
           <CardHeader>
             <CardTitle>Verify Your Email</CardTitle>
+            <p className="text-muted-foreground text-sm">
+              We've sent a verification code to {email}
+            </p>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleVerify} className="space-y-4">
-              <div>
+            <form onSubmit={handleVerify} className="space-y-6">
+              <div className="space-y-2">
                 <Label htmlFor="code">Verification Code</Label>
                 <Input
                   id="code"
@@ -99,10 +130,32 @@ export default function CustomSignUpPage() {
                   required
                 />
               </div>
+              
               {error && <p className="text-red-500 text-sm">{error}</p>}
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? "Verifying..." : "Verify Email"}
-              </Button>
+              
+              <div className="space-y-3">
+                <Button type="submit" className="w-full" disabled={isLoading}>
+                  {isLoading ? "Verifying..." : "Verify Email"}
+                </Button>
+                
+                <div className="text-center">
+                  <p className="text-sm text-muted-foreground mb-2">
+                    Didn't receive the code?
+                  </p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleResendCode}
+                    disabled={resendCooldown > 0 || isLoading}
+                    className="w-full"
+                  >
+                    {resendCooldown > 0 
+                      ? `Resend in ${resendCooldown}s` 
+                      : "Resend Verification Code"
+                    }
+                  </Button>
+                </div>
+              </div>
             </form>
           </CardContent>
         </Card>
@@ -124,9 +177,9 @@ export default function CustomSignUpPage() {
             Note: You may see a CAPTCHA warning in the console - this is normal and won't affect functionality.
           </p>
           
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-6">
             <div className="grid grid-cols-2 gap-4">
-              <div>
+              <div className="space-y-2">
                 <Label htmlFor="firstName">First Name</Label>
                 <Input
                   id="firstName"
@@ -137,7 +190,7 @@ export default function CustomSignUpPage() {
                   required
                 />
               </div>
-              <div>
+              <div className="space-y-2">
                 <Label htmlFor="lastName">Last Name</Label>
                 <Input
                   id="lastName"
@@ -149,7 +202,7 @@ export default function CustomSignUpPage() {
                 />
               </div>
             </div>
-            <div>
+            <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
                 id="email"
@@ -160,7 +213,7 @@ export default function CustomSignUpPage() {
                 required
               />
             </div>
-            <div>
+            <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
               <Input
                 id="password"

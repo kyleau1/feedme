@@ -11,6 +11,8 @@ export default function SignInPage() {
             elements: {
               formButtonPrimary: "bg-primary text-primary-foreground hover:bg-primary/90",
               card: "shadow-lg",
+              formFieldInput: "mb-2",
+              formFieldLabel: "mb-2",
             },
           }}
         />
