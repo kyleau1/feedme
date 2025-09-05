@@ -101,19 +101,39 @@ export default function OrderPage() {
       return;
     }
 
-    // Get user's name from Clerk - with better fallbacks
+    // Get user's name from Clerk or session storage - with better fallbacks
     let userName = 'Unknown User';
     
-    if (user.firstName && user.lastName) {
-      userName = `${user.firstName} ${user.lastName}`.trim();
-    } else if (user.firstName) {
-      userName = user.firstName;
-    } else if (user.username) {
-      userName = user.username;
-    } else if (user.emailAddresses?.[0]?.emailAddress) {
-      // Use email prefix as fallback
-      const email = user.emailAddresses[0].emailAddress;
-      userName = email.split('@')[0];
+    // First try to get names from session storage (from custom sign-up)
+    if (typeof window !== 'undefined') {
+      const storedNames = sessionStorage.getItem('userNames');
+      if (storedNames) {
+        try {
+          const { firstName, lastName } = JSON.parse(storedNames);
+          if (firstName && lastName) {
+            userName = `${firstName} ${lastName}`.trim();
+          } else if (firstName) {
+            userName = firstName;
+          }
+        } catch (e) {
+          // Fall back to Clerk user data
+        }
+      }
+    }
+    
+    // Fall back to Clerk user data if no session storage names
+    if (userName === 'Unknown User') {
+      if (user.firstName && user.lastName) {
+        userName = `${user.firstName} ${user.lastName}`.trim();
+      } else if (user.firstName) {
+        userName = user.firstName;
+      } else if (user.username) {
+        userName = user.username;
+      } else if (user.emailAddresses?.[0]?.emailAddress) {
+        // Use email prefix as fallback
+        const email = user.emailAddresses[0].emailAddress;
+        userName = email.split('@')[0];
+      }
     }
 
     const { error } = await supabase.from("orders").insert({

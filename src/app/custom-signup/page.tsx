@@ -31,8 +31,6 @@ export default function CustomSignUpPage() {
       const result = await signUp.create({
         emailAddress: email,
         password,
-        firstName,
-        lastName,
       });
 
       if (result.status === "missing_requirements") {
@@ -65,6 +63,12 @@ export default function CustomSignUpPage() {
       });
 
       if (completeSignUp.status === "complete") {
+        // Store names in session storage for later use
+        sessionStorage.setItem('userNames', JSON.stringify({
+          firstName,
+          lastName
+        }));
+        
         await setActive({ session: completeSignUp.createdSessionId });
         router.push("/order");
       }
