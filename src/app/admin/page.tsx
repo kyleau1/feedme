@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Trash2 } from "lucide-react";
+import { Trash2, ShoppingCart, CreditCard, CheckCircle } from "lucide-react";
 
 interface Restaurant {
   id: string;
@@ -27,6 +27,8 @@ export default function AdminPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [selectedRestaurantId, setSelectedRestaurantId] = useState<string | null>(null);
+  const [showCheckout, setShowCheckout] = useState(false);
+  const [isPlacingOrder, setIsPlacingOrder] = useState(false);
 
   const today = new Date().toISOString().slice(0, 10);
 
@@ -139,6 +141,51 @@ export default function AdminPage() {
     }
   };
 
+  // Generate order summary for checkout
+  const getOrderSummary = () => {
+    const itemCounts: { [key: string]: number } = {};
+    
+    orders.forEach(order => {
+      order.items.forEach(item => {
+        itemCounts[item] = (itemCounts[item] || 0) + 1;
+      });
+    });
+
+    return Object.entries(itemCounts).map(([item, count]) => ({
+      item,
+      count,
+      total: count // In a real app, you'd multiply by price
+    }));
+  };
+
+  const placeCollectiveOrder = async () => {
+    if (!todayRestaurant || orders.length === 0) return;
+
+    setIsPlacingOrder(true);
+    
+    // In a real app, this would integrate with the restaurant's ordering system
+    // For now, we'll just mark orders as "placed" or delete them
+    try {
+      // Option 1: Delete all orders after placing (simulating successful order)
+      const { error } = await supabase
+        .from("orders")
+        .delete()
+        .eq("restaurant_id", todayRestaurant.id);
+
+      if (error) {
+        console.error("Error placing collective order:", error);
+      } else {
+        setOrders([]);
+        setShowCheckout(false);
+        alert("Collective order placed successfully! All individual orders have been processed.");
+      }
+    } catch (error) {
+      console.error("Error placing collective order:", error);
+    } finally {
+      setIsPlacingOrder(false);
+    }
+  };
+
   return (
     <div className="p-8 max-w-4xl mx-auto space-y-6">
       <h1 className="text-3xl font-bold">Admin Dashboard</h1>
@@ -176,7 +223,18 @@ export default function AdminPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Today's Orders ({orders.length})</CardTitle>
+          <div className="flex justify-between items-center">
+            <CardTitle>Today's Orders ({orders.length})</CardTitle>
+            {orders.length > 0 && (
+              <Button 
+                onClick={() => setShowCheckout(!showCheckout)}
+                className="flex items-center gap-2"
+              >
+                <ShoppingCart className="h-4 w-4" />
+                {showCheckout ? "Hide Checkout" : "Review & Checkout"}
+              </Button>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           {orders.length === 0 ? (
@@ -223,6 +281,69 @@ export default function AdminPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Checkout Section */}
+      {showCheckout && orders.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <CreditCard className="h-5 w-5" />
+              Collective Order Checkout
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="bg-muted p-4 rounded-lg">
+              <h3 className="font-semibold mb-2">Order Summary for {todayRestaurant?.name}</h3>
+              <div className="space-y-2">
+                {getOrderSummary().map(({ item, count }) => (
+                  <div key={item} className="flex justify-between items-center">
+                    <span>{item}</span>
+                    <span className="font-medium">Qty: {count}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="border-t pt-2 mt-4">
+                <div className="flex justify-between items-center font-semibold">
+                  <span>Total Items:</span>
+                  <span>{orders.reduce((total, order) => total + order.items.length, 0)}</span>
+                </div>
+                <div className="flex justify-between items-center font-semibold">
+                  <span>Total Orders:</span>
+                  <span>{orders.length}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <Button 
+                onClick={placeCollectiveOrder}
+                disabled={isPlacingOrder}
+                className="flex-1"
+              >
+                {isPlacingOrder ? (
+                  "Placing Order..."
+                ) : (
+                  <>
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    Place Collective Order
+                  </>
+                )}
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={() => setShowCheckout(false)}
+                disabled={isPlacingOrder}
+              >
+                Cancel
+              </Button>
+            </div>
+
+            <div className="text-sm text-muted-foreground">
+              <p>⚠️ This will place one collective order for all employees and clear individual orders.</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

@@ -32,16 +32,6 @@ export default function Home() {
             </Button>
           </div>
           
-          <div className="pt-4 border-t">
-            <div className="flex gap-2">
-              <Button asChild variant="secondary" size="sm">
-                <Link href="/admin">Admin Dashboard</Link>
-              </Button>
-              <Button asChild variant="secondary" size="sm">
-                <Link href="/order">Place Order</Link>
-              </Button>
-            </div>
-          </div>
         </CardContent>
       </Card>
     </div>
