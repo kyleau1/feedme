@@ -101,10 +101,20 @@ export default function OrderPage() {
       return;
     }
 
-    // Get user's name from Clerk
-    const userName = user.firstName && user.lastName 
-      ? `${user.firstName} ${user.lastName}`.trim()
-      : user.firstName || user.username || 'Unknown User';
+    // Get user's name from Clerk - with better fallbacks
+    let userName = 'Unknown User';
+    
+    if (user.firstName && user.lastName) {
+      userName = `${user.firstName} ${user.lastName}`.trim();
+    } else if (user.firstName) {
+      userName = user.firstName;
+    } else if (user.username) {
+      userName = user.username;
+    } else if (user.emailAddresses?.[0]?.emailAddress) {
+      // Use email prefix as fallback
+      const email = user.emailAddresses[0].emailAddress;
+      userName = email.split('@')[0];
+    }
 
     const { error } = await supabase.from("orders").insert({
       user_id: user.id,

@@ -13,12 +13,9 @@ export default function SignUpPage() {
               card: "shadow-lg",
             },
           }}
-          initialValues={{
-            firstName: "",
-            lastName: "",
-          }}
           signInUrl="/sign-in"
           afterSignUpUrl="/order"
+          forceRedirectUrl="/order"
         />
       </div>
     </div>

@@ -28,17 +28,25 @@ export default function CustomSignUpPage() {
     setError("");
 
     try {
-      await signUp.create({
+      const result = await signUp.create({
         emailAddress: email,
         password,
         firstName,
         lastName,
       });
 
-      await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
-      setPendingVerification(true);
+      if (result.status === "missing_requirements") {
+        // Handle missing requirements (like email verification)
+        await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
+        setPendingVerification(true);
+      } else if (result.status === "complete") {
+        // Sign up is complete, redirect to order page
+        await setActive({ session: result.createdSessionId });
+        router.push("/order");
+      }
     } catch (err: any) {
-      setError(err.errors?.[0]?.message || "An error occurred");
+      console.error("Sign up error:", err);
+      setError(err.errors?.[0]?.message || "An error occurred during sign up");
     } finally {
       setIsLoading(false);
     }
