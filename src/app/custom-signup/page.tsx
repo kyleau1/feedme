@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useSignUp, useUser } from "@clerk/nextjs";
+import { useSignUp } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -114,6 +114,12 @@ export default function CustomSignUpPage() {
           <p className="text-muted-foreground">Create your account to start ordering</p>
         </CardHeader>
         <CardContent>
+          {/* CAPTCHA container for Clerk */}
+          <div id="clerk-captcha" className="mb-4"></div>
+          <p className="text-xs text-muted-foreground mb-4">
+            Note: You may see a CAPTCHA warning in the console - this is normal and won't affect functionality.
+          </p>
+          
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>

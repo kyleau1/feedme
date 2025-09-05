@@ -16,6 +16,9 @@ export default function SignUpPage() {
           signInUrl="/sign-in"
           afterSignUpUrl="/order"
           forceRedirectUrl="/order"
+          unsafeMetadata={{
+            requireName: true
+          }}
         />
       </div>
     </div>

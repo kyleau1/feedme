@@ -19,7 +19,7 @@ export default function Home() {
         <CardContent className="space-y-4">
           <div className="flex flex-col gap-3">
             <Button asChild>
-              <Link href="/sign-up">Sign Up</Link>
+              <Link href="/custom-signup">Sign Up</Link>
             </Button>
             <Button asChild variant="outline">
               <Link href="/sign-in">Sign In</Link>
