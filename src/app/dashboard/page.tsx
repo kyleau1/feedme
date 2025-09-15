@@ -12,7 +12,7 @@ export default async function DashboardPage() {
   const role = user.publicMetadata?.role ?? "employee";
 
   if (role === "admin") {
-    redirect("/admin");
+    redirect("/manager-dashboard");
   } else {
     redirect("/order");
   }

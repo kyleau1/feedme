@@ -13,10 +13,10 @@ export default function Home() {
   const { user, isLoaded } = useUser();
   const router = useRouter();
 
-  // Redirect logged-in users to employee dashboard
+  // Redirect logged-in users to appropriate dashboard
   useEffect(() => {
     if (isLoaded && user) {
-      router.push("/employee-dashboard");
+      router.push("/dashboard");
     }
   }, [user, isLoaded, router]);
 

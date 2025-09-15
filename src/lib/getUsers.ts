@@ -2,9 +2,10 @@
 import { clerkClient } from "@clerk/nextjs/server";
 
 export async function getUserNames(userIds: string[]) {
-  const users = await clerkClient.users.getUserList({ userId: userIds });
+  const clerk = await clerkClient();
+  const users = await clerk.users.getUserList({ userId: userIds });
   const map: Record<string, string> = {};
-  users.forEach(u => {
+  users.data.forEach((u: any) => {
     map[u.id] = u.firstName || "Unknown";
   });
   return map;

@@ -1,21 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useUser } from "@clerk/nextjs";
+import { useUser, useClerk } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Trash2, ShoppingCart, CreditCard, CheckCircle } from "lucide-react";
+import { Trash2, ShoppingCart, CreditCard, CheckCircle, Search, MapPin, LogOut } from "lucide-react";
 import Link from "next/link";
+import { restaurantService } from "@/lib/restaurantService";
+import { Restaurant } from "@/lib/googlePlaces";
+import InviteManager from "@/components/InviteManager";
 
-interface Restaurant {
-  id: string;
-  name: string;
-  menu: string[];
-}
 
 interface Order {
   id: string;
@@ -28,6 +25,7 @@ interface Order {
 
 export default function ManagerDashboard() {
   const { user, isLoaded } = useUser();
+  const { signOut } = useClerk();
   const router = useRouter();
   const [todayRestaurant, setTodayRestaurant] = useState<Restaurant | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -35,6 +33,9 @@ export default function ManagerDashboard() {
   const [selectedRestaurantId, setSelectedRestaurantId] = useState<string | null>(null);
   const [showCheckout, setShowCheckout] = useState(false);
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchLocation, setSearchLocation] = useState<string>("");
 
   // Redirect if not logged in
   useEffect(() => {
@@ -45,50 +46,71 @@ export default function ManagerDashboard() {
 
   const today = new Date().toISOString().slice(0, 10);
 
-  // Fetch all restaurants for the select dropdown
-  useEffect(() => {
-    async function fetchRestaurants() {
-      const { data } = await supabase.from("restaurants").select("*");
-      setRestaurants(data || []);
+  // Search for restaurants using Google Places API
+  const searchRestaurants = async () => {
+    if (!searchQuery.trim()) return;
+    
+    setIsSearching(true);
+    try {
+      // Build search query with location if provided
+      let query = searchQuery;
+      if (searchLocation.trim()) {
+        query = `${searchQuery} in ${searchLocation.trim()}`;
+      }
+      
+      const results = await restaurantService.searchRestaurants(query);
+      setRestaurants(results);
+    } catch (error) {
+      console.error("Error searching restaurants:", error);
+    } finally {
+      setIsSearching(false);
     }
-    fetchRestaurants();
-  }, []);
+  };
+
+  // Search nearby restaurants using current location
+  const searchNearbyRestaurants = async () => {
+    setIsSearching(true);
+    try {
+      const location = await restaurantService.getCurrentLocation();
+      if (location) {
+        // Search for restaurants near current location
+        const results = await restaurantService.searchRestaurants("restaurants near me");
+        setRestaurants(results);
+      } else {
+        alert("Unable to get your current location. Please enable location services or search by city name.");
+      }
+    } catch (error) {
+      console.error("Error searching nearby restaurants:", error);
+    } finally {
+      setIsSearching(false);
+    }
+  };
 
   // Fetch today's restaurant for the organization
-  useEffect(() => {
-    async function fetchTodayRestaurant() {
-      // Use the same org ID as in order page
-      const orgId = "018615c8-327d-4648-8072-52f1f2da6f34";
-      
-      const { data: org, error: orgError } = await supabase
-        .from("organizations")
-        .select("daily_restaurant_id")
-        .eq("id", orgId)
-        .single();
+  const fetchTodayRestaurant = async () => {
+    const orgId = "018615c8-327d-4648-8072-52f1f2da6f34";
+    
+    const { data: org, error: orgError } = await supabase
+      .from("organizations")
+      .select("daily_restaurant_data")
+      .eq("id", orgId)
+      .single();
 
-      if (orgError) {
-        console.error("Error fetching org:", orgError);
-        setTodayRestaurant(null);
-        return;
-      }
-
-      if (org?.daily_restaurant_id) {
-        const { data: restaurant, error: restError } = await supabase
-          .from("restaurants")
-          .select("*")
-          .eq("id", org.daily_restaurant_id)
-          .single();
-        
-        if (restError) {
-          console.error("Error fetching restaurant:", restError);
-          setTodayRestaurant(null);
-        } else {
-          setTodayRestaurant(restaurant || null);
-        }
-      } else {
-        setTodayRestaurant(null);
-      }
+    if (orgError) {
+      console.error("Error fetching org:", orgError);
+      setTodayRestaurant(null);
+      return;
     }
+
+    if (org?.daily_restaurant_data) {
+      // Use the stored Google Places data
+      setTodayRestaurant(org.daily_restaurant_data);
+    } else {
+      setTodayRestaurant(null);
+    }
+  };
+
+  useEffect(() => {
     fetchTodayRestaurant();
   }, [selectedRestaurantId]);
 
@@ -96,9 +118,13 @@ export default function ManagerDashboard() {
   useEffect(() => {
     async function fetchOrders() {
       if (!todayRestaurant) {
+        console.log("No restaurant selected, clearing orders");
         setOrders([]);
         return;
       }
+
+      console.log("Fetching orders for restaurant:", todayRestaurant);
+      console.log("Using place_id:", todayRestaurant.place_id);
 
       // Filter orders by today's date
       const startOfDay = new Date();
@@ -106,19 +132,26 @@ export default function ManagerDashboard() {
       const endOfDay = new Date();
       endOfDay.setHours(23, 59, 59, 999);
 
+      // Temporarily skip orders fetching until database schema is updated
+      console.log("Skipping orders fetch - database schema needs updating");
+      setOrders([]);
+      return;
+
       const { data: orderData, error } = await supabase
         .from("orders")
         .select("id, user_id, user_name, items, created_at")
-        .eq("restaurant_id", todayRestaurant.id)
+        .eq("restaurant_id", todayRestaurant?.place_id)
         .gte("created_at", startOfDay.toISOString())
         .lte("created_at", endOfDay.toISOString());
 
       if (error) {
         console.error("Error fetching orders:", error);
+        console.error("Error details:", JSON.stringify(error, null, 2));
         setOrders([]);
         return;
       }
 
+      console.log("Orders fetched successfully:", orderData);
       setOrders(orderData || []);
     }
 
@@ -140,18 +173,45 @@ export default function ManagerDashboard() {
     return null;
   }
 
-  const changeRestaurant = async (restaurantId: string) => {
+  const changeRestaurant = async (placeId: string) => {
     const orgId = "018615c8-327d-4648-8072-52f1f2da6f34";
     
+    // Find the restaurant data from the search results
+    const restaurant = restaurants.find(r => r.place_id === placeId);
+    if (!restaurant) {
+      console.error("Restaurant not found in search results");
+      return;
+    }
+
     const { error } = await supabase
       .from("organizations")
-      .update({ daily_restaurant_id: restaurantId })
+      .update({ 
+        daily_restaurant_data: restaurant
+      })
       .eq("id", orgId);
 
     if (error) {
       console.error("Error updating restaurant:", error);
     } else {
-      setSelectedRestaurantId(restaurantId);
+      setSelectedRestaurantId(placeId);
+      // Refresh the today's restaurant data
+      fetchTodayRestaurant();
+    }
+  };
+
+  const clearRestaurant = async () => {
+    const orgId = "018615c8-327d-4648-8072-52f1f2da6f34";
+    
+    const { error } = await supabase
+      .from("organizations")
+      .update({ daily_restaurant_id: null })
+      .eq("id", orgId);
+
+    if (error) {
+      console.error("Error clearing restaurant:", error);
+    } else {
+      setSelectedRestaurantId(null);
+      setTodayRestaurant(null);
     }
   };
 
@@ -198,7 +258,7 @@ export default function ManagerDashboard() {
       const { error } = await supabase
         .from("orders")
         .delete()
-        .eq("restaurant_id", todayRestaurant.id);
+        .eq("restaurant_id", todayRestaurant.place_id);
 
       if (error) {
         console.error("Error placing collective order:", error);
@@ -224,9 +284,19 @@ export default function ManagerDashboard() {
           </h1>
           <p className="text-muted-foreground">Manage restaurant selection and team orders</p>
         </div>
-        <Button asChild variant="outline">
-          <Link href="/employee-dashboard">Employee View</Link>
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button asChild variant="outline">
+            <Link href="/employee-dashboard">Employee View</Link>
+          </Button>
+          <Button 
+            variant="outline" 
+            onClick={() => signOut()}
+            className="flex items-center gap-2"
+          >
+            <LogOut className="h-4 w-4" />
+            Logout
+          </Button>
+        </div>
       </div>
 
       <Card>
@@ -237,26 +307,107 @@ export default function ManagerDashboard() {
           {todayRestaurant ? (
             <p className="text-lg">{todayRestaurant.name}</p>
           ) : (
-            <p className="text-muted-foreground">No restaurant selected for today.</p>
+            <p className="text-muted-foreground">There is no restaurant today.</p>
           )}
         </CardContent>
       </Card>
+
+      {/* Invite Manager */}
+      <InviteManager 
+        companyId="018615c8-327d-4648-8072-52f1f2da6f34" 
+        companyName="Your Company" 
+      />
 
       <Card>
         <CardHeader>
           <CardTitle>Change Today's Restaurant</CardTitle>
         </CardHeader>
-        <CardContent>
-          <Select onValueChange={changeRestaurant}>
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Select a restaurant" />
-            </SelectTrigger>
-            <SelectContent>
-              {restaurants.map(r => (
-                <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <CardContent className="space-y-4">
+          {/* Search Input */}
+          <div className="space-y-2">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="Search restaurants (e.g., 'pizza', 'sushi')"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                onKeyPress={(e) => e.key === 'Enter' && searchRestaurants()}
+              />
+              <Button 
+                onClick={searchRestaurants} 
+                disabled={isSearching || !searchQuery.trim()}
+                className="px-4"
+              >
+                <Search className="w-4 h-4 mr-2" />
+                {isSearching ? "Searching..." : "Search"}
+              </Button>
+            </div>
+            
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="Location (optional, e.g., 'New York, NY')"
+                value={searchLocation}
+                onChange={(e) => setSearchLocation(e.target.value)}
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <Button 
+                onClick={searchNearbyRestaurants} 
+                disabled={isSearching}
+                variant="outline"
+                className="px-4"
+              >
+                <MapPin className="w-4 h-4 mr-2" />
+                {isSearching ? "Searching..." : "Nearby"}
+              </Button>
+            </div>
+          </div>
+
+          {/* Restaurant Selection */}
+          {restaurants.length > 0 && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Click to select a restaurant:</label>
+              <div className="space-y-2 max-h-60 overflow-y-auto">
+                {restaurants.map(restaurant => (
+                  <div
+                    key={restaurant.place_id}
+                    onClick={() => changeRestaurant(restaurant.place_id)}
+                    className={`p-3 border rounded-lg cursor-pointer transition-colors ${
+                      todayRestaurant?.place_id === restaurant.place_id
+                        ? 'bg-blue-50 border-blue-300'
+                        : 'hover:bg-gray-50'
+                    }`}
+                  >
+                    <div className="flex flex-col">
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium">{restaurant.name}</span>
+                        {todayRestaurant?.place_id === restaurant.place_id && (
+                          <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                            Selected
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-sm text-gray-500">{restaurant.address}</span>
+                      {restaurant.rating && (
+                        <span className="text-sm text-yellow-600">⭐ {restaurant.rating}/5</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {todayRestaurant && (
+            <Button 
+              onClick={clearRestaurant}
+              variant="outline"
+              className="w-full"
+            >
+              Clear Restaurant Selection
+            </Button>
+          )}
         </CardContent>
       </Card>
 

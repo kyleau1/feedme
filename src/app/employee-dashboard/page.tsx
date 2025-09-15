@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useUser } from "@clerk/nextjs";
+import { useUser, useClerk } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ShoppingCart, Clock, CheckCircle, User } from "lucide-react";
+import { ShoppingCart, Clock, CheckCircle, User, LogOut } from "lucide-react";
 import Link from "next/link";
 
 interface Restaurant {
@@ -25,6 +25,7 @@ interface Order {
 
 export default function EmployeeDashboard() {
   const { user, isLoaded } = useUser();
+  const { signOut } = useClerk();
   const router = useRouter();
   const [todayRestaurant, setTodayRestaurant] = useState<Restaurant | null>(null);
   const [myOrders, setMyOrders] = useState<Order[]>([]);
@@ -43,15 +44,22 @@ export default function EmployeeDashboard() {
       if (!user) return;
 
       try {
-        // Get today's restaurant
+        // Get user's company/organization
+        // For now, we'll use a default org ID, but in a real app this would come from user metadata
         const orgId = "018615c8-327d-4648-8072-52f1f2da6f34";
+        
+        // Get today's restaurant data (using the new structure with daily_restaurant_data)
         const { data: org } = await supabase
           .from("organizations")
-          .select("daily_restaurant_id")
+          .select("daily_restaurant_data, daily_restaurant_id")
           .eq("id", orgId)
           .single();
 
-        if (org?.daily_restaurant_id) {
+        if (org?.daily_restaurant_data) {
+          // Use the stored Google Places data
+          setTodayRestaurant(org.daily_restaurant_data);
+        } else if (org?.daily_restaurant_id) {
+          // Fallback to old structure
           const { data: restaurant } = await supabase
             .from("restaurants")
             .select("*")
@@ -107,16 +115,26 @@ export default function EmployeeDashboard() {
         <div>
           <h1 className="text-3xl font-bold flex items-center gap-2">
             <User className="h-8 w-8" />
-            My Dashboard
+            Feed Me
           </h1>
-          <p className="text-muted-foreground">Welcome back, {user.firstName || user.username}!</p>
+          <p className="text-muted-foreground">Welcome back, {user.firstName || user.username || 'there'}!</p>
         </div>
-        <Button asChild>
-          <Link href="/order">
-            <ShoppingCart className="h-4 w-4 mr-2" />
-            Place New Order
-          </Link>
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button asChild>
+            <Link href="/order">
+              <ShoppingCart className="h-4 w-4 mr-2" />
+              Place New Order
+            </Link>
+          </Button>
+          <Button 
+            variant="outline" 
+            onClick={() => signOut()}
+            className="flex items-center gap-2"
+          >
+            <LogOut className="h-4 w-4" />
+            Logout
+          </Button>
+        </div>
       </div>
 
       {/* Today's Restaurant */}
@@ -131,16 +149,39 @@ export default function EmployeeDashboard() {
           {todayRestaurant ? (
             <div>
               <h3 className="text-xl font-semibold">{todayRestaurant.name}</h3>
-              <p className="text-muted-foreground mt-1">
-                {todayRestaurant.menu.length} items available
-              </p>
+              {todayRestaurant.address && (
+                <p className="text-muted-foreground mt-1">{todayRestaurant.address}</p>
+              )}
+              {todayRestaurant.rating && (
+                <div className="flex items-center gap-2 mt-2">
+                  <span className="text-yellow-600">⭐ {todayRestaurant.rating}/5</span>
+                  {todayRestaurant.user_ratings_total && (
+                    <span className="text-sm text-muted-foreground">
+                      ({todayRestaurant.user_ratings_total} reviews)
+                    </span>
+                  )}
+                </div>
+              )}
+              {todayRestaurant.menu && Array.isArray(todayRestaurant.menu) && (
+                <p className="text-muted-foreground mt-1">
+                  {todayRestaurant.menu.length} items available
+                </p>
+              )}
+              {todayRestaurant.price_level && (
+                <p className="text-muted-foreground mt-1">
+                  Price Level: {"$".repeat(todayRestaurant.price_level)}
+                </p>
+              )}
               <Button asChild className="mt-4">
                 <Link href="/order">View Menu & Order</Link>
               </Button>
             </div>
           ) : (
             <div>
-              <p className="text-muted-foreground">No restaurant selected for today.</p>
+              <p className="text-muted-foreground">There is no restaurant selected for today.</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Your manager will select a restaurant for team orders.
+              </p>
               <Button asChild className="mt-4">
                 <Link href="/order">Browse All Restaurants</Link>
               </Button>

@@ -13,11 +13,20 @@ interface Restaurant {
   id: string;
   name: string;
   menu: string[];
+  place_id?: string;
+  address?: string;
+  rating?: number;
+}
+
+interface OrderItem {
+  name: string;
+  price: number;
+  quantity: number;
 }
 
 interface CheckoutProps {
   restaurant: Restaurant;
-  selectedItems: string[];
+  selectedItems: OrderItem[];
   onBack: () => void;
 }
 
@@ -29,7 +38,7 @@ export default function CheckoutPage() {
 
   // Get data from sessionStorage
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
-  const [selectedItems, setSelectedItems] = useState<string[]>([]);
+  const [selectedItems, setSelectedItems] = useState<OrderItem[]>([]);
 
   // Load data from sessionStorage on component mount
   useEffect(() => {
@@ -49,57 +58,276 @@ export default function CheckoutPage() {
     setIsSubmitting(true);
     setMessage("");
 
-    // Get user's name from Clerk or session storage - with better fallbacks
-    let userName = 'Unknown User';
-    
-    // First try to get names from session storage (from custom sign-up)
-    if (typeof window !== 'undefined') {
-      const storedNames = sessionStorage.getItem('userNames');
-      if (storedNames) {
-        try {
-          const { firstName, lastName } = JSON.parse(storedNames);
-          if (firstName && lastName) {
-            userName = `${firstName} ${lastName}`.trim();
-          } else if (firstName) {
-            userName = firstName;
+    try {
+      // Get user's name from Clerk or session storage - with better fallbacks
+      let userName = 'Unknown User';
+      
+      // First try to get names from session storage (from custom sign-up)
+      if (typeof window !== 'undefined') {
+        const storedNames = sessionStorage.getItem('userNames');
+        if (storedNames) {
+          try {
+            const { firstName, lastName } = JSON.parse(storedNames);
+            if (firstName && lastName) {
+              userName = `${firstName} ${lastName}`.trim();
+            } else if (firstName) {
+              userName = firstName;
+            }
+          } catch (e) {
+            // Fall back to Clerk user data
           }
-        } catch (e) {
-          // Fall back to Clerk user data
         }
       }
-    }
-    
-    // Fall back to Clerk user data if no session storage names
-    if (userName === 'Unknown User') {
-      if (user.firstName && user.lastName) {
-        userName = `${user.firstName} ${user.lastName}`.trim();
-      } else if (user.firstName) {
-        userName = user.firstName;
-      } else if (user.username) {
-        userName = user.username;
-      } else if (user.emailAddresses?.[0]?.emailAddress) {
-        // Use email prefix as fallback
-        const email = user.emailAddresses[0].emailAddress;
-        userName = email.split('@')[0];
+      
+      // Fall back to Clerk user data if no session storage names
+      if (userName === 'Unknown User') {
+        if (user.firstName && user.lastName) {
+          userName = `${user.firstName} ${user.lastName}`.trim();
+        } else if (user.firstName) {
+          userName = user.firstName;
+        } else if (user.username) {
+          userName = user.username;
+        } else if (user.emailAddresses?.[0]?.emailAddress) {
+          // Use email prefix as fallback
+          const email = user.emailAddresses[0].emailAddress;
+          userName = email.split('@')[0];
+        }
       }
+
+      // Generate unique external delivery ID with more randomness
+      const externalDeliveryId = `feedme_${Date.now()}_${user.id}_${Math.random().toString(36).substr(2, 9)}`;
+
+      // First, save order to database
+      const { data: orderData, error: dbError } = await supabase
+        .from("orders")
+        .insert({
+          user_id: user.id,
+          user_name: userName,
+          restaurant_id: restaurant.place_id || restaurant.id,
+          items: selectedItems.map(item => item.name),
+          external_delivery_id: externalDeliveryId,
+          delivery_status: 'pending',
+          created_at: new Date().toISOString()
+        })
+        .select()
+        .single();
+
+      if (dbError) {
+        throw new Error("Database error: " + dbError.message);
+      }
+
+      console.log('Order saved to database:', orderData);
+
+      // Try to place DoorDash delivery
+      try {
+        // Check if DoorDash is configured
+        const configResponse = await fetch('/api/doordash', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'check-config' })
+        });
+
+        if (!configResponse.ok) {
+          throw new Error('DoorDash service not available');
+        }
+
+        // For demo purposes, we'll use placeholder addresses
+        // In a real app, you'd get these from user profile and restaurant data
+        const deliveryRequest = {
+          external_delivery_id: externalDeliveryId,
+          pickup_address: {
+            street_address: "123 Restaurant St",
+            city: "San Francisco",
+            state: "CA",
+            zip_code: "94102",
+            country: "US",
+            lat: 37.7749,
+            lng: -122.4194
+          },
+          dropoff_address: {
+            street_address: "456 Customer Ave",
+            city: "San Francisco", 
+            state: "CA",
+            zip_code: "94103",
+            country: "US",
+            lat: 37.7849,
+            lng: -122.4094
+          },
+          pickup_phone_number: "+15551234567",
+          dropoff_phone_number: user.primaryPhoneNumber?.phoneNumber || "+15559876543",
+          pickup_business_name: restaurant.name,
+          pickup_instructions: "Please call restaurant when arriving for pickup",
+          dropoff_instructions: "Please call customer when arriving for delivery",
+          order_value: selectedItems.reduce((sum, item) => sum + (item.price * item.quantity), 0),
+          currency: "USD",
+          items: selectedItems.map(item => ({
+            name: item.name,
+            description: `Ordered from ${restaurant.name}`,
+            quantity: item.quantity,
+            unit_price: item.price,
+            total_price: item.price * item.quantity
+          }))
+        };
+
+        // Get delivery quote first
+        const quoteResponse = await fetch('/api/doordash', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'quote',
+            ...deliveryRequest
+          })
+        });
+
+        if (!quoteResponse.ok) {
+          const errorText = await quoteResponse.text();
+          throw new Error(`Failed to get delivery quote: ${errorText}`);
+        }
+
+        const { quote } = await quoteResponse.json();
+        console.log('Delivery quote:', quote);
+
+        // Generate a new unique ID for delivery creation (different from quote)
+        const deliveryId = `feedme_${Date.now()}_${user.id}_${Math.random().toString(36).substr(2, 9)}_delivery`;
+        
+        // Create the delivery with new ID
+        const deliveryResponse = await fetch('/api/doordash', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'create',
+            ...deliveryRequest,
+            external_delivery_id: deliveryId
+          })
+        });
+
+        if (!deliveryResponse.ok) {
+          const errorText = await deliveryResponse.text();
+          throw new Error(`Failed to create delivery: ${errorText}`);
+        }
+
+        const { delivery } = await deliveryResponse.json();
+        console.log('Delivery created:', delivery);
+
+        // Update order with DoorDash delivery ID
+        await supabase
+          .from("orders")
+          .update({
+            doordash_delivery_id: delivery.external_delivery_id,
+            delivery_status: delivery.delivery_status,
+            tracking_url: delivery.tracking_url,
+            delivery_fee: quote.fee
+          })
+          .eq('id', orderData.id);
+
+        setMessage(`Order placed successfully! Delivery ID: ${delivery.external_delivery_id}. Redirecting to tracking...`);
+        
+        // Show sandbox mode confirmation
+        console.log('🧪 SANDBOX DELIVERY: Using DoorDash Sandbox - No real delivery created');
+        
+        // Redirect to tracking page after a short delay
+        console.log('Redirecting to tracking page with order ID:', orderData.id);
+        setTimeout(() => {
+          window.location.href = `/tracking/${orderData.id}`;
+        }, 2000);
+      } catch (deliveryError) {
+        console.error('DoorDash delivery error:', deliveryError);
+        // Order was saved to database, but delivery failed
+        const errorMessage = deliveryError instanceof Error ? deliveryError.message : 'Unknown error';
+        
+        if (errorMessage.includes('ENOTFOUND') || errorMessage.includes('getaddrinfo')) {
+          setMessage(`Order saved successfully! DoorDash delivery service is currently unavailable. Your order has been recorded and you can contact the restaurant directly at ${restaurant.name}.`);
+        } else if (errorMessage.includes('not configured')) {
+          setMessage(`Order saved successfully! DoorDash integration is not configured. Your order has been recorded and you can contact the restaurant directly.`);
+        } else {
+          setMessage(`Order saved but delivery setup failed: ${errorMessage}. You may need to contact the restaurant directly.`);
+        }
+      }
+
+    } catch (error) {
+      console.error('Order error:', error);
+      setMessage("Error placing order: " + (error instanceof Error ? error.message : 'Unknown error'));
     }
 
-    const { error } = await supabase.from("orders").insert({
-      user_id: user.id,
-      user_name: userName,
-      restaurant_id: restaurant.id,
-      items: selectedItems,
-    });
+    setIsSubmitting(false);
+  };
 
-    if (error) {
-      setMessage("Error placing order: " + error.message);
-    } else {
-      setMessage("Order submitted successfully!");
-      // Redirect to order page after a short delay
+  const submitOrderWithoutDelivery = async () => {
+    if (!user || !restaurant) return;
+
+    setIsSubmitting(true);
+    setMessage("");
+
+    try {
+      // Get user's name from Clerk or session storage - with better fallbacks
+      let userName = 'Unknown User';
+      
+      // First try to get names from session storage (from custom sign-up)
+      if (typeof window !== 'undefined') {
+        const storedNames = sessionStorage.getItem('userNames');
+        if (storedNames) {
+          try {
+            const { firstName, lastName } = JSON.parse(storedNames);
+            if (firstName && lastName) {
+              userName = `${firstName} ${lastName}`.trim();
+            } else if (firstName) {
+              userName = firstName;
+            }
+          } catch (e) {
+            // Fall back to Clerk user data
+          }
+        }
+      }
+      
+      // Fall back to Clerk user data if no session storage names
+      if (userName === 'Unknown User') {
+        if (user.firstName && user.lastName) {
+          userName = `${user.firstName} ${user.lastName}`.trim();
+        } else if (user.firstName) {
+          userName = user.firstName;
+        } else if (user.username) {
+          userName = user.username;
+        } else if (user.emailAddresses?.[0]?.emailAddress) {
+          // Use email prefix as fallback
+          const email = user.emailAddresses[0].emailAddress;
+          userName = email.split('@')[0];
+        }
+      }
+
+      // Generate unique external delivery ID with more randomness
+      const externalDeliveryId = `feedme_${Date.now()}_${user.id}_${Math.random().toString(36).substr(2, 9)}`;
+
+      // Save order to database without DoorDash delivery
+      const { data: orderData, error: dbError } = await supabase
+        .from("orders")
+        .insert({
+          user_id: user.id,
+          user_name: userName,
+          restaurant_id: restaurant.place_id || restaurant.id,
+          items: selectedItems.map(item => item.name),
+          external_delivery_id: externalDeliveryId,
+          delivery_status: 'pending',
+          created_at: new Date().toISOString()
+        })
+        .select()
+        .single();
+
+      if (dbError) {
+        throw new Error("Database error: " + dbError.message);
+      }
+
+      setMessage(`Order placed successfully! Your order has been recorded. Please contact ${restaurant.name} directly to arrange pickup or delivery. Order ID: ${externalDeliveryId}. Redirecting to tracking...`);
+      
+      // Redirect to tracking page after a short delay
+      console.log('Redirecting to tracking page with order ID (no delivery):', orderData.id);
       setTimeout(() => {
-        router.push("/order");
+        window.location.href = `/tracking/${orderData.id}`;
       }, 2000);
+    } catch (error) {
+      console.error('Order error:', error);
+      setMessage("Error placing order: " + (error instanceof Error ? error.message : 'Unknown error'));
     }
+
     setIsSubmitting(false);
   };
 
@@ -151,13 +379,16 @@ export default function CheckoutPage() {
           {restaurant && (
             <div>
               <h3 className="font-semibold text-lg">{restaurant.name}</h3>
+              {restaurant.address && (
+                <p className="text-sm text-muted-foreground mt-1">{restaurant.address}</p>
+              )}
               <div className="mt-4">
                 <h4 className="font-medium mb-2">Selected Items ({selectedItems.length}):</h4>
                 <ul className="space-y-1">
                   {selectedItems.map((item, index) => (
                     <li key={index} className="flex justify-between items-center py-1">
-                      <span>{item}</span>
-                      <span className="text-sm text-muted-foreground">$0.00</span>
+                      <span>{item.name} x{item.quantity}</span>
+                      <span className="text-sm text-muted-foreground">${(item.price * item.quantity).toFixed(2)}</span>
                     </li>
                   ))}
                 </ul>
@@ -166,22 +397,41 @@ export default function CheckoutPage() {
               <div className="border-t pt-4 mt-4">
                 <div className="flex justify-between items-center text-lg font-semibold">
                   <span>Total:</span>
-                  <span>$0.00</span>
+                  <span>${selectedItems.reduce((sum, item) => sum + (item.price * item.quantity), 0).toFixed(2)}</span>
                 </div>
                 <p className="text-sm text-muted-foreground mt-1">
-                  *Pricing not available - contact restaurant for actual prices
+                  *Prices are estimates - actual prices may vary
                 </p>
               </div>
             </div>
           )}
 
           <div className="space-y-3">
+            {/* Mode Indicator */}
+            <div className="text-center">
+              <div className="inline-flex items-center gap-2 px-3 py-1 bg-yellow-100 text-yellow-800 text-sm rounded-full">
+                🧪 Sandbox Mode - Test Deliveries Only
+              </div>
+              <p className="text-xs text-gray-600 mt-1">
+                Using DoorDash Sandbox credentials
+              </p>
+            </div>
+            
             <Button 
               onClick={submitOrder} 
               className="w-full" 
               disabled={isSubmitting || selectedItems.length === 0}
             >
-              {isSubmitting ? "Placing Order..." : "Confirm & Place Order"}
+              {isSubmitting ? "Placing Order..." : "Confirm & Place Order (with DoorDash)"}
+            </Button>
+            
+            <Button 
+              variant="outline" 
+              onClick={submitOrderWithoutDelivery} 
+              className="w-full" 
+              disabled={isSubmitting || selectedItems.length === 0}
+            >
+              {isSubmitting ? "Placing Order..." : "Place Order (No Delivery)"}
             </Button>
             
             <Button 
