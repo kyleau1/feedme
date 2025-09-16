@@ -3,10 +3,10 @@ import { supabase } from '@/lib/supabaseClient';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { orderId: string } }
+  { params }: { params: Promise<{ orderId: string }> }
 ) {
   try {
-    const { orderId } = params;
+    const { orderId } = await params;
     console.log('Fetching order with ID:', orderId);
 
     if (!orderId) {
@@ -77,7 +77,7 @@ export async function GET(
       }
     }
 
-    return NextResponse.json(order);
+    return NextResponse.json({ order, error: null });
   } catch (error) {
     console.error('Error fetching order:', error);
     return NextResponse.json(

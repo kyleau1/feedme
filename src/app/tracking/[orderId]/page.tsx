@@ -34,7 +34,8 @@ const statusConfig = {
   'picked_up': { label: 'Picked Up', color: 'bg-orange-500', icon: CheckCircle },
   'delivered': { label: 'Delivered', color: 'bg-green-500', icon: CheckCircle },
   'cancelled': { label: 'Cancelled', color: 'bg-red-500', icon: Circle },
-  'expired': { label: 'Expired', color: 'bg-gray-500', icon: Circle }
+  'expired': { label: 'Expired', color: 'bg-gray-500', icon: Circle },
+  'pending': { label: 'Order Pending', color: 'bg-yellow-500', icon: Package }
 };
 
 const statusOrder = ['quote', 'created', 'accepted', 'picked_up', 'delivered'];
@@ -61,8 +62,11 @@ export default function OrderTrackingPage() {
       if (!response.ok) {
         throw new Error('Order not found');
       }
-      const orderData = await response.json();
-      setOrder(orderData);
+      const result = await response.json();
+      if (result.error || !result.order) {
+        throw new Error('Order not found');
+      }
+      setOrder(result.order);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch order details');
@@ -191,19 +195,35 @@ export default function OrderTrackingPage() {
                   <div>
                     <h4 className="font-medium text-gray-900 mb-2">Items Ordered</h4>
                     <div className="space-y-2">
-                      {order.items.map((item, index) => (
+                      {order.items && order.items.map((item, index) => (
                         <div key={index} className="flex justify-between items-center py-2 border-b border-gray-100 last:border-b-0">
-                          <span className="text-gray-700">{item.name}</span>
-                          <span className="text-gray-500">Qty: {item.quantity}</span>
+                          <span className="text-gray-700">{typeof item === 'string' ? item : item.name || 'Unknown Item'}</span>
+                          <span className="text-gray-500">Qty: {typeof item === 'object' ? item.quantity || 1 : 1}</span>
                         </div>
                       ))}
                     </div>
                   </div>
                   
-                  <div className="pt-4 border-t border-gray-200">
+                  <div className="pt-4 border-t border-gray-200 space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600">Food Total</span>
+                      <span className="text-gray-700">${(order.food_amount / 100).toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600">Service Fee</span>
+                      <span className="text-gray-700">${(order.service_fee / 100).toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600">Platform Fee</span>
+                      <span className="text-gray-700">${(order.platform_fee / 100).toFixed(2)}</span>
+                    </div>
                     <div className="flex justify-between items-center">
                       <span className="font-medium text-gray-900">Delivery Fee</span>
                       <span className="text-gray-700">${(order.delivery_fee / 100).toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between items-center pt-2 border-t border-gray-200">
+                      <span className="font-bold text-lg text-gray-900">Total</span>
+                      <span className="font-bold text-lg text-gray-900">${(order.total_amount / 100).toFixed(2)}</span>
                     </div>
                   </div>
                 </div>
@@ -226,6 +246,9 @@ export default function OrderTrackingPage() {
                   >
                     {statusConfig[order.delivery_status as keyof typeof statusConfig]?.label}
                   </Badge>
+                  <p className="text-sm text-gray-600 mt-2">
+                    Payment processed successfully! Delivery service temporarily unavailable - order will be processed manually.
+                  </p>
                 </div>
               </CardContent>
             </Card>
@@ -242,19 +265,19 @@ export default function OrderTrackingPage() {
                 <div>
                   <p className="text-sm text-gray-600">Estimated Pickup</p>
                   <p className="font-medium">
-                    {formatTime(order.pickup_time_estimated)}
+                    {order.pickup_time_estimated ? formatTime(order.pickup_time_estimated) : 'TBD'}
                   </p>
                   <p className="text-xs text-gray-500">
-                    {formatDate(order.pickup_time_estimated)}
+                    {order.pickup_time_estimated ? formatDate(order.pickup_time_estimated) : 'Time will be updated'}
                   </p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-600">Estimated Delivery</p>
                   <p className="font-medium">
-                    {formatTime(order.dropoff_time_estimated)}
+                    {order.dropoff_time_estimated ? formatTime(order.dropoff_time_estimated) : 'TBD'}
                   </p>
                   <p className="text-xs text-gray-500">
-                    {formatDate(order.dropoff_time_estimated)}
+                    {order.dropoff_time_estimated ? formatDate(order.dropoff_time_estimated) : 'Time will be updated'}
                   </p>
                 </div>
               </CardContent>
@@ -274,8 +297,8 @@ export default function OrderTrackingPage() {
                     <Home className="h-4 w-4 text-teal-600 mt-1" />
                     <div>
                       <p className="text-sm font-medium text-gray-900">Pickup</p>
-                      <p className="text-sm text-gray-600">{order.pickup_business_name}</p>
-                      <p className="text-xs text-gray-500">{order.pickup_address}</p>
+                      <p className="text-sm text-gray-600">{order.pickup_business_name || 'Restaurant'}</p>
+                      <p className="text-xs text-gray-500">{order.pickup_address || 'Address will be updated'}</p>
                     </div>
                   </div>
                 </div>
@@ -284,7 +307,7 @@ export default function OrderTrackingPage() {
                     <MapPin className="h-4 w-4 text-teal-600 mt-1" />
                     <div>
                       <p className="text-sm font-medium text-gray-900">Delivery</p>
-                      <p className="text-xs text-gray-500">{order.dropoff_address}</p>
+                      <p className="text-xs text-gray-500">{order.dropoff_address || 'Address will be updated'}</p>
                     </div>
                   </div>
                 </div>

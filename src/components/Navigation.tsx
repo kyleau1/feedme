@@ -3,7 +3,7 @@
 import { useUser, UserButton } from '@clerk/nextjs';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Package, Home, ShoppingCart, User } from 'lucide-react';
+import { Package, Home, ShoppingCart, User, Settings } from 'lucide-react';
 
 export default function Navigation() {
   const { user, isLoaded } = useUser();
@@ -35,13 +35,22 @@ export default function Navigation() {
               <span>Order Food</span>
             </Link>
             {user && (
-              <Link 
-                href="/orders" 
-                className="flex items-center space-x-1 text-gray-600 hover:text-teal-600 transition-colors"
-              >
-                <Package className="h-4 w-4" />
-                <span>My Orders</span>
-              </Link>
+              <>
+                <Link 
+                  href="/orders" 
+                  className="flex items-center space-x-1 text-gray-600 hover:text-teal-600 transition-colors"
+                >
+                  <Package className="h-4 w-4" />
+                  <span>My Orders</span>
+                </Link>
+                <Link 
+                  href="/settings" 
+                  className="flex items-center space-x-1 text-gray-600 hover:text-teal-600 transition-colors"
+                >
+                  <Settings className="h-4 w-4" />
+                  <span>Settings</span>
+                </Link>
+              </>
             )}
           </div>
 
