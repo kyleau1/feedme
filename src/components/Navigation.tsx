@@ -4,6 +4,7 @@ import { useUser, UserButton } from '@clerk/nextjs';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Package, Home, ShoppingCart, User, Settings } from 'lucide-react';
+import CartIcon from './CartIcon';
 
 export default function Navigation() {
   const { user, isLoaded } = useUser();
@@ -56,6 +57,9 @@ export default function Navigation() {
 
           {/* User Menu */}
           <div className="flex items-center space-x-4">
+            {/* Cart Icon */}
+            <CartIcon />
+            
             {!isLoaded ? (
               <div className="w-8 h-8 bg-gray-200 rounded-full animate-pulse"></div>
             ) : user ? (

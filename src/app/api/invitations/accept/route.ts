@@ -89,9 +89,34 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Update user's metadata to include company information
-    // Note: In a real app, you'd update this via Clerk's API
-    // For now, we'll just return success
+    // Update user's company_id in the database
+    const { error: userUpdateError } = await supabase
+      .from("users")
+      .update({
+        company_id: invitation.company_id,
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", user.id);
+
+    if (userUpdateError) {
+      console.error("Error updating user company:", userUpdateError);
+      return NextResponse.json({ error: "Failed to update user profile" }, { status: 500 });
+    }
+
+    // Update user's public metadata in Clerk to include company information
+    try {
+      const { users } = await import('@clerk/nextjs/server');
+      await users.updateUserMetadata(user.id, {
+        publicMetadata: {
+          companyId: invitation.company_id,
+          companyName: invitation.company_name,
+          role: 'employee' // Default role for invited users
+        }
+      });
+    } catch (clerkError) {
+      console.error("Error updating Clerk metadata:", clerkError);
+      // Don't fail the request if Clerk update fails, as the database is already updated
+    }
 
     return NextResponse.json({ 
       success: true, 
