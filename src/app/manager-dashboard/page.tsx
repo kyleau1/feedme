@@ -132,14 +132,9 @@ export default function ManagerDashboard() {
       const endOfDay = new Date();
       endOfDay.setHours(23, 59, 59, 999);
 
-      // Temporarily skip orders fetching until database schema is updated
-      console.log("Skipping orders fetch - database schema needs updating");
-      setOrders([]);
-      return;
-
       const { data: orderData, error } = await supabase
         .from("orders")
-        .select("id, user_id, user_name, items, created_at")
+        .select("id, user_id, user_name, items, created_at, delivery_status, payment_status, total_amount")
         .eq("restaurant_id", todayRestaurant?.place_id)
         .gte("created_at", startOfDay.toISOString())
         .lte("created_at", endOfDay.toISOString());
