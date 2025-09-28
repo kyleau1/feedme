@@ -13,7 +13,7 @@ export async function PATCH(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { status, doordash_group_link } = await request.json();
+    const { status, doordash_group_link, start_time, end_time } = await request.json();
 
     // Get user's company and role
     const { data: userData, error: userError } = await supabase
@@ -26,14 +26,22 @@ export async function PATCH(
       return NextResponse.json({ error: 'User not found or not in a company' }, { status: 404 });
     }
 
-    if (userData.role !== 'manager') {
-      return NextResponse.json({ error: 'Only managers can update order sessions' }, { status: 403 });
+    // Allow both 'manager' and 'admin' roles to update order sessions (case insensitive)
+    const userRole = userData.role?.toLowerCase();
+    const isAllowedRole = userRole === 'manager' || userRole === 'admin';
+    
+    if (!isAllowedRole) {
+      return NextResponse.json({ 
+        error: `Only managers and admins can update order sessions. Your role: ${userData.role || 'undefined'}` 
+      }, { status: 403 });
     }
 
     // Update order session
     const updateData: any = { updated_at: new Date().toISOString() };
     if (status) updateData.status = status;
     if (doordash_group_link !== undefined) updateData.doordash_group_link = doordash_group_link;
+    if (start_time) updateData.start_time = start_time;
+    if (end_time) updateData.end_time = end_time;
 
     const { data: session, error: sessionError } = await supabase
       .from('order_sessions')

@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 interface Notification {
   id: string;
-  type: 'deadline' | 'order_placed' | 'order_missing' | 'session_ending' | 'order_passed' | 'preset_order' | 'auto_passed';
+  type: 'deadline' | 'order_placed' | 'order_missing' | 'session_ending' | 'order_passed' | 'preset_order' | 'auto_passed' | 'session_created';
   title: string;
   message: string;
   timestamp: Date;
@@ -208,8 +208,35 @@ export default function NotificationBell({ userRole, currentSession, participant
       const hoursLeft = Math.floor(timeLeft / (1000 * 60 * 60));
       const minutesLeft = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
 
+      // Check if this is a new session (first load)
+      const isFirstLoad = previousParticipants.length === 0;
+      if (isFirstLoad && currentSession) {
+        newNotifications.push({
+          id: `session_created_${currentSession.id}`,
+          type: 'session_created',
+          title: 'New Order Session',
+          message: 'A new order session has been created. You can now place your order!',
+          timestamp: now,
+          sessionId: currentSession.id
+        });
+      }
+
       if (timeLeft > 0) {
-        if (hoursLeft < 1 && minutesLeft <= 30) {
+        // Session ending soon notification (last 5 minutes)
+        if (minutesLeft <= 5 && minutesLeft > 0) {
+          const notificationId = `session_ending_5min_${currentSession.id}`;
+          if (!generatedNotificationIds.current.has(notificationId)) {
+            newNotifications.push({
+              id: notificationId,
+              type: 'session_ending',
+              title: 'Session Ending Soon',
+              message: `The order session will end in ${minutesLeft} minute${minutesLeft !== 1 ? 's' : ''}`,
+              timestamp: now,
+              sessionId: currentSession.id
+            });
+            generatedNotificationIds.current.add(notificationId);
+          }
+        } else if (hoursLeft < 1 && minutesLeft <= 30) {
           newNotifications.push({
             id: 'deadline_warning',
             type: 'deadline',
@@ -373,12 +400,12 @@ export default function NotificationBell({ userRole, currentSession, participant
         }
       }
 
-      // Check for session ending soon - only in last 15 minutes
+      // Check for session ending soon - only in last 5 minutes
       const sessionEnd = new Date(currentSession.end_time);
       const timeLeft = sessionEnd.getTime() - now;
       const minutesLeft = Math.floor(timeLeft / (1000 * 60));
 
-      // Only show notification in last 15 minutes and only once per session
+      // Only show notification in last 5 minutes and only once per session
       if (timeLeft > 0 && minutesLeft <= 5 && minutesLeft > 0) {
         const notificationId = `session_ending_5min_${currentSession.id}`;
         if (!generatedNotificationIds.current.has(notificationId)) {
@@ -438,42 +465,46 @@ export default function NotificationBell({ userRole, currentSession, participant
   const getNotificationIcon = (type: string) => {
     switch (type) {
       case 'deadline':
-        return <Clock className="h-4 w-4 text-orange-500" />;
+        return <Clock className="h-4 w-4 text-teal-500" />;
       case 'order_placed':
-        return <CheckCircle className="h-4 w-4 text-green-500" />;
+        return <CheckCircle className="h-4 w-4 text-teal-500" />;
       case 'order_missing':
-        return <AlertCircle className="h-4 w-4 text-red-500" />;
+        return <AlertCircle className="h-4 w-4 text-teal-500" />;
       case 'session_ending':
-        return <Users className="h-4 w-4 text-blue-500" />;
+        return <Users className="h-4 w-4 text-teal-500" />;
       case 'order_passed':
-        return <X className="h-4 w-4 text-gray-500" />;
+        return <X className="h-4 w-4 text-teal-500" />;
       case 'preset_order':
-        return <MessageSquare className="h-4 w-4 text-purple-500" />;
+        return <MessageSquare className="h-4 w-4 text-teal-500" />;
       case 'auto_passed':
-        return <Clock className="h-4 w-4 text-yellow-500" />;
+        return <Clock className="h-4 w-4 text-teal-500" />;
+      case 'session_created':
+        return <Bell className="h-4 w-4 text-teal-500" />;
       default:
-        return <Bell className="h-4 w-4 text-gray-500" />;
+        return <Bell className="h-4 w-4 text-teal-500" />;
     }
   };
 
   const getNotificationColor = (type: string) => {
     switch (type) {
       case 'deadline':
-        return 'border-orange-200 bg-orange-50';
+        return 'border-teal-200 bg-teal-50';
       case 'order_placed':
-        return 'border-green-200 bg-green-50';
+        return 'border-teal-200 bg-teal-50';
       case 'order_missing':
-        return 'border-red-200 bg-red-50';
+        return 'border-teal-200 bg-teal-50';
       case 'session_ending':
-        return 'border-blue-200 bg-blue-50';
+        return 'border-teal-200 bg-teal-50';
       case 'order_passed':
-        return 'border-gray-200 bg-gray-50';
+        return 'border-teal-200 bg-teal-50';
       case 'preset_order':
-        return 'border-purple-200 bg-purple-50';
+        return 'border-teal-200 bg-teal-50';
       case 'auto_passed':
-        return 'border-yellow-200 bg-yellow-50';
+        return 'border-teal-200 bg-teal-50';
+      case 'session_created':
+        return 'border-teal-200 bg-teal-50';
       default:
-        return 'border-gray-200 bg-gray-50';
+        return 'border-teal-200 bg-teal-50';
     }
   };
 

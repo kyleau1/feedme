@@ -38,12 +38,18 @@ export default function ManagerDashboard() {
   const [orderSessions, setOrderSessions] = useState<OrderSession[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [editingSession, setEditingSession] = useState<OrderSession | null>(null);
   const [newSession, setNewSession] = useState({
     restaurant_name: '',
     restaurant_options: [''],
     start_time: '',
     end_time: '',
     doordash_group_link: ''
+  });
+  const [editSession, setEditSession] = useState({
+    start_time: '',
+    end_time: ''
   });
   const [showCreateCompany, setShowCreateCompany] = useState(false);
   const [companyName, setCompanyName] = useState('');
@@ -521,6 +527,61 @@ export default function ManagerDashboard() {
     }
   };
 
+  const openEditDialog = (session: OrderSession) => {
+    setEditingSession(session);
+    // Convert UTC times to local datetime-local format
+    const startTime = new Date(session.start_time);
+    const endTime = new Date(session.end_time);
+    
+    // Format for datetime-local input (YYYY-MM-DDTHH:MM)
+    const formatForInput = (date: Date) => {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const hours = String(date.getHours()).padStart(2, '0');
+      const minutes = String(date.getMinutes()).padStart(2, '0');
+      return `${year}-${month}-${day}T${hours}:${minutes}`;
+    };
+    
+    setEditSession({
+      start_time: formatForInput(startTime),
+      end_time: formatForInput(endTime)
+    });
+    setShowEditDialog(true);
+  };
+
+  const updateSessionTimes = async () => {
+    if (!editingSession) return;
+
+    try {
+      // Convert local times back to UTC
+      const startTimeUTC = new Date(editSession.start_time).toISOString();
+      const endTimeUTC = new Date(editSession.end_time).toISOString();
+
+      const response = await fetch(`/api/order-sessions/${editingSession.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          start_time: startTimeUTC,
+          end_time: endTimeUTC
+        })
+      });
+
+      if (response.ok) {
+        await loadOrderSessions();
+        setShowEditDialog(false);
+        setEditingSession(null);
+        alert('Session times updated successfully!');
+      } else {
+        const error = await response.json();
+        alert(`Error updating session: ${error.error}`);
+      }
+    } catch (error) {
+      console.error('Error updating session times:', error);
+      alert('Error updating session times');
+    }
+  };
+
   const updateParticipantStatus = async (sessionId: string, userId: string, status: string) => {
     try {
       const response = await fetch('/api/order-sessions/respond', {
@@ -973,6 +1034,15 @@ export default function ManagerDashboard() {
                           {isActive ? 'Active' : isUpcoming ? 'Upcoming' : 'Closed'}
                         </span>
                         <Button
+                          onClick={() => openEditDialog(session)}
+                          variant="outline"
+                          size="sm"
+                          className="text-xs"
+                        >
+                          <Clock className="h-3 w-3 mr-1" />
+                          Edit Times
+                        </Button>
+                        <Button
                           onClick={() => fixSessionParticipants(session.id)}
                           variant="outline"
                           size="sm"
@@ -1401,6 +1471,59 @@ export default function ManagerDashboard() {
                   <Button
                     variant="outline"
                     onClick={() => setShowCreateDialog(false)}
+                    className="flex-1"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Edit Session Dialog */}
+        {showEditDialog && editingSession && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <Card className="w-full max-w-md">
+              <CardHeader>
+                <CardTitle>Edit Session Times</CardTitle>
+                <p className="text-sm text-gray-600">Update the start and end times for {editingSession.restaurant_name}</p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="edit_start_time">Start Time</Label>
+                    <Input
+                      id="edit_start_time"
+                      type="datetime-local"
+                      value={editSession.start_time}
+                      onChange={(e) => setEditSession(prev => ({ ...prev, start_time: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="edit_end_time">End Time</Label>
+                    <Input
+                      id="edit_end_time"
+                      type="datetime-local"
+                      value={editSession.end_time}
+                      onChange={(e) => setEditSession(prev => ({ ...prev, end_time: e.target.value }))}
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      When should the order session close?
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex gap-2 pt-4">
+                  <Button onClick={updateSessionTimes} className="flex-1">
+                    Update Times
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setShowEditDialog(false);
+                      setEditingSession(null);
+                    }}
                     className="flex-1"
                   >
                     Cancel
