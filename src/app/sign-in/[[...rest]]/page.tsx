@@ -12,7 +12,7 @@ export default function SignInPage() {
   // Redirect logged-in users
   useEffect(() => {
     if (isLoaded && user) {
-      router.push("/employee-dashboard");
+      router.push("/dashboard");
     }
   }, [user, isLoaded, router]);
 
@@ -38,6 +38,8 @@ export default function SignInPage() {
         <SignIn 
           path="/sign-in" 
           routing="path"
+          afterSignInUrl="/dashboard"
+          signUpUrl="/sign-up"
           appearance={{
             elements: {
               formButtonPrimary: "bg-primary text-primary-foreground hover:bg-primary/90",

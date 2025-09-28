@@ -16,8 +16,8 @@ export default function SignUpPage() {
             },
           }}
           signInUrl="/sign-in"
-          afterSignUpUrl="/order"
-          forceRedirectUrl="/order"
+          afterSignUpUrl="/dashboard"
+          forceRedirectUrl="/dashboard"
         />
       </div>
     </div>

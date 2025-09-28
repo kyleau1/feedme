@@ -37,11 +37,7 @@ export default function CustomSignUpPage() {
   };
 
   const getRedirectUrl = () => {
-    if (userType === "company") {
-      return "/manager-dashboard";
-    } else {
-      return "/employee-dashboard";
-    }
+    return "/dashboard";
   };
 
   if (step === "type") {
