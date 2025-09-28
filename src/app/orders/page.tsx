@@ -5,7 +5,6 @@ import { useUser } from '@clerk/nextjs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import OrderTrackingWidget from '@/components/OrderTrackingWidget';
 import { Package, Clock, MapPin, ArrowRight } from 'lucide-react';
 
 interface Order {
@@ -46,15 +45,32 @@ export default function OrdersPage() {
 
   const fetchOrders = async () => {
     try {
-      const response = await fetch('/api/orders');
+      // Fetch group order sessions instead of individual orders
+      const response = await fetch('/api/doordash/group-orders');
       if (!response.ok) {
-        throw new Error('Failed to fetch orders');
+        throw new Error('Failed to fetch group orders');
       }
-      const ordersData = await response.json();
+      const sessionsData = await response.json();
+      // Convert sessions to orders format for compatibility
+      const ordersData = sessionsData.sessions?.map((session: any) => ({
+        id: session.id,
+        external_delivery_id: session.id,
+        delivery_status: session.status === 'active' ? 'preparing' : 
+                        session.status === 'completed' ? 'delivered' : 
+                        session.status === 'closed' ? 'cancelled' : 'pending',
+        tracking_url: session.doordash_group_link || '',
+        delivery_fee: 0,
+        pickup_time_estimated: session.start_time,
+        dropoff_time_estimated: session.end_time,
+        pickup_business_name: session.restaurant_name,
+        items: ['Group Order'],
+        total_amount: 0,
+        created_at: session.created_at || new Date().toISOString()
+      })) || [];
       setOrders(ordersData);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch orders');
+      setError(err instanceof Error ? err.message : 'Failed to fetch group orders');
     } finally {
       setLoading(false);
     }
@@ -141,8 +157,8 @@ export default function OrdersPage() {
       <div className="max-w-6xl mx-auto px-4">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Your Orders</h1>
-          <p className="text-gray-600">Track and manage your food delivery orders</p>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Group Order Sessions</h1>
+          <p className="text-gray-600">View your group order participation history</p>
         </div>
 
         {orders.length === 0 ? (
@@ -150,10 +166,10 @@ export default function OrdersPage() {
             <CardContent className="pt-6">
               <div className="text-center py-12">
                 <Package className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">No Orders Yet</h3>
-                <p className="text-gray-600 mb-6">Start by placing your first order!</p>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">No Group Orders Yet</h3>
+                <p className="text-gray-600 mb-6">You haven't participated in any group order sessions yet.</p>
                 <Button onClick={() => window.location.href = '/order'}>
-                  Browse Restaurants
+                  View Active Sessions
                 </Button>
               </div>
             </CardContent>
@@ -196,12 +212,18 @@ export default function OrdersPage() {
                       </div>
                     </div>
 
-                    {/* Tracking Widget */}
-                    <OrderTrackingWidget 
-                      orderId={order.id} 
-                      compact={true}
-                      onViewDetails={() => window.location.href = `/tracking/${order.id}`}
-                    />
+                    {/* Tracking Status */}
+                    <div className="p-3 bg-gray-50 rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Package className="h-4 w-4 text-gray-600" />
+                          <span className="text-sm font-medium">Status: {order.delivery_status}</span>
+                        </div>
+                        <Badge variant="outline" className="text-xs">
+                          {order.delivery_status}
+                        </Badge>
+                      </div>
+                    </div>
 
                     {/* Action Button */}
                     <Button 

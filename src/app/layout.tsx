@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs"; // ✅ Import ClerkProvider
 import Navigation from "@/components/Navigation";
-import { CartProvider } from "@/contexts/CartContext";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -32,10 +31,8 @@ export default function RootLayout({
         suppressHydrationWarning={true}
       >
         <ClerkProvider>
-          <CartProvider>
-            <Navigation />
-            {children}
-          </CartProvider>
+          <Navigation />
+          {children}
         </ClerkProvider>
       </body>
     </html>

@@ -45,17 +45,25 @@ export default function EmployeeDashboard() {
 
       try {
         // Get user's company/organization
-        // For now, we'll use a default org ID, but in a real app this would come from user metadata
-        const orgId = "018615c8-327d-4648-8072-52f1f2da6f34";
+        const { data: userData, error: userError } = await supabase
+          .from("users")
+          .select("company_id")
+          .eq("id", user.id)
+          .single();
+
+        const orgId = userData?.company_id || "018615c8-327d-4648-8072-52f1f2da6f34";
         
         // Get today's restaurant data (using the new structure with daily_restaurant_data)
-        const { data: org } = await supabase
+        const { data: org, error: orgError } = await supabase
           .from("organizations")
           .select("daily_restaurant_data, daily_restaurant_id")
           .eq("id", orgId)
           .single();
 
-        if (org?.daily_restaurant_data) {
+        if (orgError) {
+          console.log("Error fetching organization:", orgError);
+          setTodayRestaurant(null);
+        } else if (org?.daily_restaurant_data) {
           // Use the stored Google Places data
           setTodayRestaurant(org.daily_restaurant_data);
         } else if (org?.daily_restaurant_id) {
@@ -66,6 +74,8 @@ export default function EmployeeDashboard() {
             .eq("id", org.daily_restaurant_id)
             .single();
           setTodayRestaurant(restaurant);
+        } else {
+          setTodayRestaurant(null);
         }
 
         // Get user's orders for today
