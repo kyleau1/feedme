@@ -11,8 +11,6 @@
   },
   "dependencies": {
     "@clerk/nextjs": "^6.31.6",
-    "@doordash/sdk": "^0.6.13",
-    "@googlemaps/google-maps-services-js": "^3.4.2",
     "@radix-ui/react-accordion": "^1.2.12",
     "@radix-ui/react-alert-dialog": "^1.1.15",
     "@radix-ui/react-aspect-ratio": "^1.1.7",
@@ -48,7 +46,10 @@
     "cheerio": "^1.1.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "dotenv": "^17.2.2",
+    "cmdk": "^1.1.1",
+    "dotenv": "^17.2.3",
+    "embla-carousel-react": "^8.6.0",
+    "input-otp": "^1.4.2",
     "jsonwebtoken": "^9.0.2",
     "lucide-react": "^0.542.0",
     "next": "15.5.2",
@@ -57,11 +58,16 @@
     "puppeteer-extra": "^3.3.6",
     "puppeteer-extra-plugin-stealth": "^2.11.2",
     "react": "19.1.0",
+    "react-day-picker": "^9.11.1",
     "react-dom": "19.1.0",
+    "react-hook-form": "^7.64.0",
+    "react-resizable-panels": "^3.0.6",
+    "recharts": "^3.2.1",
     "sonner": "^2.0.7",
     "stripe": "^18.5.0",
     "tailwind-merge": "^3.3.1",
-    "tailwindcss-animate": "^1.0.7"
+    "tailwindcss-animate": "^1.0.7",
+    "vaul": "^1.1.2"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",

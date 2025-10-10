@@ -126,7 +126,7 @@ export async function POST(request: NextRequest) {
     console.error('Error creating company:', error);
     return NextResponse.json({ 
       error: 'Internal server error',
-      details: error.message 
+      details: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 });
   }
 }

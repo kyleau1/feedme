@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useUser, useClerk } from "@clerk/nextjs";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -30,7 +30,7 @@ interface OrderSession {
   created_at: string;
 }
 
-export default function ManagerDashboard() {
+function ManagerDashboardContent() {
   const { user, isLoaded } = useUser();
   const { signOut } = useClerk();
   const router = useRouter();
@@ -55,7 +55,16 @@ export default function ManagerDashboard() {
   const [companyName, setCompanyName] = useState('');
   const [activeTab, setActiveTab] = useState<'sessions' | 'preset-orders'>('sessions');
   const [notificationCount, setNotificationCount] = useState(0);
+
   const [showDebugTools, setShowDebugTools] = useState(false);
+
+  // Validate DoorDash group link
+  const isValidDoorDashLink = (link: string): boolean => {
+    if (!link) return true; // Optional field
+    // Accept any DoorDash-related link (drd.sh, doordash.com, etc.)
+    const doordashRegex = /^https:\/\/(www\.)?(doordash\.com|drd\.sh)\/.*$/;
+    return doordashRegex.test(link);
+  };
 
   // Redirect if not logged in
   useEffect(() => {
@@ -66,7 +75,7 @@ export default function ManagerDashboard() {
 
   // Set active tab based on URL parameter
   useEffect(() => {
-    const tab = searchParams.get('tab');
+    const tab = searchParams?.get('tab');
     if (tab === 'preset-orders') {
       setActiveTab('preset-orders');
     } else {
@@ -160,6 +169,13 @@ export default function ManagerDashboard() {
         return;
       }
 
+      // Validate DoorDash link if provided
+      if (newSession.doordash_group_link && !isValidDoorDashLink(newSession.doordash_group_link)) {
+        alert('Please enter a valid DoorDash link (e.g., https://drd.sh/... or https://doordash.com/...)');
+        return;
+      }
+
+
       console.log('Session times:', {
         start_time_input: newSession.start_time,
         start_time_parsed: startTime.toISOString(),
@@ -169,15 +185,15 @@ export default function ManagerDashboard() {
         end_time_local: endTime.toLocaleString()
       });
 
-      const response = await fetch('/api/doordash/group-orders', {
+      const response = await fetch('/api/order-sessions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: newSession.restaurant_name,
+          restaurant_name: newSession.restaurant_name,
           restaurant_options: newSession.restaurant_options.filter(opt => opt.trim() !== ''),
           start_time: startTime.toISOString(),
           end_time: endTime.toISOString(),
-          expires_in_hours: 2
+          doordash_group_link: newSession.doordash_group_link || null
         })
       });
 
@@ -196,7 +212,7 @@ export default function ManagerDashboard() {
           end_time: '',
           doordash_group_link: ''
         });
-        alert('Group order created successfully! Check the DoorDash group link in the session details.');
+        alert('Order session created successfully!');
       } else {
         const error = await response.json();
         console.error('Error creating group order:', error);
@@ -519,7 +535,7 @@ export default function ManagerDashboard() {
 
       if (response.ok) {
         setOrderSessions(prev => prev.map(session => 
-          session.id === sessionId ? { ...session, status } : session
+          session.id === sessionId ? { ...session, status: status as 'active' | 'completed' | 'upcoming' | 'closed' } : session
         ));
       }
     } catch (error) {
@@ -603,7 +619,7 @@ export default function ManagerDashboard() {
               ...session,
               participants: session.participants?.map(participant => 
                 participant.user_id === userId 
-                  ? { ...participant, status }
+                  ? { ...participant, status: status as 'pending' | 'preset' | 'passed' | 'ordered' }
                   : participant
               ) || []
             };
@@ -880,7 +896,7 @@ export default function ManagerDashboard() {
                     };
                     console.log('Testing session creation with data:', testData);
                     
-                    const response = await fetch('/api/doordash/group-orders', {
+                    const response = await fetch('/api/order-sessions', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify(testData)
@@ -1455,13 +1471,22 @@ export default function ManagerDashboard() {
                 </div>
 
                 <div>
-                  <Label htmlFor="doordash_link">DoorDash Group Link (Optional)</Label>
+                  <Label htmlFor="doordash_link">DoorDash Group Link</Label>
                   <Input
                     id="doordash_link"
                     value={newSession.doordash_group_link}
                     onChange={(e) => setNewSession(prev => ({ ...prev, doordash_group_link: e.target.value }))}
-                    placeholder="https://doordash.com/group/..."
+                    placeholder="https://drd.sh/cart/... or https://doordash.com/group/..."
+                    className={newSession.doordash_group_link && !isValidDoorDashLink(newSession.doordash_group_link) ? 'border-red-500' : ''}
                   />
+                  {newSession.doordash_group_link && !isValidDoorDashLink(newSession.doordash_group_link) && (
+                    <p className="text-xs text-red-500 mt-1">
+                      Please enter a valid DoorDash link (e.g., https://drd.sh/... or https://doordash.com/...)
+                    </p>
+                  )}
+                  <p className="text-xs text-gray-500 mt-1">
+                    Create a group order on DoorDash and paste the link here for employees to access
+                  </p>
                 </div>
 
                 <div className="flex gap-2 pt-4">
@@ -1590,5 +1615,13 @@ export default function ManagerDashboard() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function ManagerDashboard() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <ManagerDashboardContent />
+    </Suspense>
   );
 }

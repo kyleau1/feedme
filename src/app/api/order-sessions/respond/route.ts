@@ -167,17 +167,17 @@ export async function POST(request: NextRequest) {
       console.error('Error updating participant response:', error);
       console.error('Error object keys:', Object.keys(error));
       console.error('Error object values:', {
-        code: error.code,
-        message: error.message,
-        details: error.details,
-        hint: error.hint
+        code: (error as any).code,
+        message: (error as any).message,
+        details: (error as any).details,
+        hint: (error as any).hint
       });
       
-      if (error.code === '42501') {
+      if ((error as any).code === '42501') {
         const errorResponse = { 
           error: 'RLS policy violation - participant table access denied',
-          details: String(error.message || 'RLS policy blocks participant table access'),
-          code: String(error.code || '42501'),
+          details: String((error as any).message || 'RLS policy blocks participant table access'),
+          code: String((error as any).code || '42501'),
           solution: 'Add SUPABASE_SERVICE_ROLE_KEY to .env.local or disable RLS on order_session_participants table'
         };
         console.log('Returning RLS error response:', errorResponse);
@@ -185,11 +185,11 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(errorResponse, { status: 500 });
       }
       
-      if (error.code === '23505') {
+      if ((error as any).code === '23505') {
         const errorResponse = { 
           error: 'Duplicate participant - user already in session',
-          details: String(error.message || 'User is already a participant in this session'),
-          code: String(error.code || '23505'),
+          details: String((error as any).message || 'User is already a participant in this session'),
+          code: String((error as any).code || '23505'),
           solution: 'This should not happen with upsert - check database constraints'
         };
         console.log('Returning duplicate key error response:', errorResponse);
@@ -198,8 +198,8 @@ export async function POST(request: NextRequest) {
       
       const errorResponse = { 
         error: 'Failed to update response',
-        details: String(error.message || 'Unknown database error'),
-        code: String(error.code || 'UNKNOWN_ERROR')
+        details: String((error as any).message || 'Unknown database error'),
+        code: String((error as any).code || 'UNKNOWN_ERROR')
       };
       console.log('Returning general error response:', errorResponse);
       console.log('General error response JSON stringified:', JSON.stringify(errorResponse));

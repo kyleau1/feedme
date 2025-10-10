@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Clock, Users, Calendar, AlertCircle, CheckCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
-import DoorDashGroupOrder from "@/components/DoorDashGroupOrder";
 
 interface OrderSession {
   id: string;
@@ -113,8 +112,7 @@ export default function OrderPage() {
         body: JSON.stringify({
           session_id: currentSession.id,
           user_id: user.id,
-          response: response,
-          preset_order: response === 'preset' ? presetOrder : undefined
+          response: response
         })
       });
 
@@ -454,15 +452,18 @@ export default function OrderPage() {
                     </div>
 
                     {isActive && (
-                      <DoorDashGroupOrder
-                        session={session}
-                        userResponse={userResponse}
-                        onResponse={handleUserResponse}
-                        onPresetMessage={handlePresetMessage}
-                        onOpenDoorDash={openDoorDashGroup}
-                        user={user}
-                        isSubmitting={isSubmitting}
-                      />
+                      <div className="mt-4">
+                        {session.doordash_group_link && (
+                          <a 
+                            href={session.doordash_group_link} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                          >
+                            Join DoorDash Group Order
+                          </a>
+                        )}
+                      </div>
                     )}
 
                     {isUpcoming && (

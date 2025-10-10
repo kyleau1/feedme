@@ -53,7 +53,7 @@ const Hero = () => {
           <div className="animate-slide-up lg:animate-scale-in">
             <div className="relative">
               <img
-                src={heroImage}
+                 src={heroImage.src}
                 alt="Managers and employees using FeedME platform for corporate food ordering"
                 className="w-full h-auto rounded-2xl shadow-teal"
               />

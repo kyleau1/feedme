@@ -8,8 +8,21 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Settings, Building2, User, MapPin, Bell, Shield, Users } from "lucide-react";
-import { Company } from "@/lib/menuTypes";
+import { Settings, Building2, User, MapPin, Bell, Shield, Users, Link } from "lucide-react";
+// import { Company } from "@/lib/menuTypes";
+
+interface Company {
+  id: string;
+  name: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  zip_code?: string;
+  country?: string;
+  logo_url?: string;
+  created_at: string;
+  updated_at: string;
+}
 
 export default function SettingsPage() {
   const { user, isLoaded } = useUser();
@@ -602,8 +615,10 @@ export default function SettingsPage() {
                     </div>
                   </CardContent>
                 </Card>
+
               </>
             )}
+
 
             {/* Notifications Settings */}
             <Card>

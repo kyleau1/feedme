@@ -53,21 +53,17 @@ export default function EmployeeDashboard() {
 
         const orgId = userData?.company_id || "018615c8-327d-4648-8072-52f1f2da6f34";
         
-        // Get today's restaurant data (using the new structure with daily_restaurant_data)
+        // Get today's restaurant data
         const { data: org, error: orgError } = await supabase
           .from("organizations")
-          .select("daily_restaurant_data, daily_restaurant_id")
+          .select("daily_restaurant_id")
           .eq("id", orgId)
           .single();
 
         if (orgError) {
           console.log("Error fetching organization:", orgError);
           setTodayRestaurant(null);
-        } else if (org?.daily_restaurant_data) {
-          // Use the stored Google Places data
-          setTodayRestaurant(org.daily_restaurant_data);
         } else if (org?.daily_restaurant_id) {
-          // Fallback to old structure
           const { data: restaurant } = await supabase
             .from("restaurants")
             .select("*")
@@ -159,27 +155,9 @@ export default function EmployeeDashboard() {
           {todayRestaurant ? (
             <div>
               <h3 className="text-xl font-semibold">{todayRestaurant.name}</h3>
-              {todayRestaurant.address && (
-                <p className="text-muted-foreground mt-1">{todayRestaurant.address}</p>
-              )}
-              {todayRestaurant.rating && (
-                <div className="flex items-center gap-2 mt-2">
-                  <span className="text-yellow-600">⭐ {todayRestaurant.rating}/5</span>
-                  {todayRestaurant.user_ratings_total && (
-                    <span className="text-sm text-muted-foreground">
-                      ({todayRestaurant.user_ratings_total} reviews)
-                    </span>
-                  )}
-                </div>
-              )}
               {todayRestaurant.menu && Array.isArray(todayRestaurant.menu) && (
                 <p className="text-muted-foreground mt-1">
                   {todayRestaurant.menu.length} items available
-                </p>
-              )}
-              {todayRestaurant.price_level && (
-                <p className="text-muted-foreground mt-1">
-                  Price Level: {"$".repeat(todayRestaurant.price_level)}
                 </p>
               )}
               <Button asChild className="mt-4">

@@ -34,7 +34,7 @@
 - **Styling**: Tailwind CSS, Radix UI Components
 - **Authentication**: Clerk
 - **Database**: Supabase (PostgreSQL)
-- **External APIs**: DoorDash Group Orders API, Google Maps API
+- **External APIs**: Slack API for notifications
 - **Deployment**: Vercel (recommended)
 
 ## 📦 Installation
@@ -66,12 +66,7 @@
    NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
    SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
 
-   # DoorDash API
-   DOORDASH_API_KEY=your_doordash_api_key
-   DOORDASH_API_SECRET=your_doordash_api_secret
 
-   # Google Maps API (optional)
-   GOOGLE_MAPS_API_KEY=your_google_maps_api_key
    ```
 
 4. **Set up the database**
@@ -199,7 +194,7 @@ This project was built for a hackathon and demonstrates:
 
 - **Full-stack development** with modern web technologies
 - **Real-time features** with live updates and notifications
-- **External API integration** with DoorDash and Google Maps
+- **External API integration** with Slack for notifications
 - **Responsive design** that works on all devices
 - **Scalable architecture** supporting multiple companies
 - **User experience focus** with intuitive interfaces

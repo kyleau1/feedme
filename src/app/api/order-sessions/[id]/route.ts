@@ -4,10 +4,11 @@ import { auth } from '@clerk/nextjs/server';
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { userId } = await auth();
+    const { id } = await params;
     
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -46,7 +47,7 @@ export async function PATCH(
     const { data: session, error: sessionError } = await supabase
       .from('order_sessions')
       .update(updateData)
-      .eq('id', params.id)
+      .eq('id', id)
       .eq('company_id', userData.company_id)
       .select()
       .single();
@@ -65,10 +66,11 @@ export async function PATCH(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { userId } = await auth();
+    const { id } = await params;
     
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -99,7 +101,7 @@ export async function DELETE(
     const { error: sessionError } = await supabase
       .from('order_sessions')
       .delete()
-      .eq('id', params.id)
+      .eq('id', id)
       .eq('company_id', userData.company_id);
 
     if (sessionError) {
